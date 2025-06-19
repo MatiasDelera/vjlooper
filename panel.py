@@ -26,6 +26,7 @@ class SignalCache:
         return self.cache[key]
 
 signal_cache = SignalCache()
+# store smoothed values per signal id
 smoothing_cache = {}
 
 def calc_signal(it, obj, frame):
@@ -46,7 +47,7 @@ def calc_signal(it, obj, frame):
     elif it.signal_type=='NOISE':
         random.seed(it.noise_seed+frame); wave=random.uniform(-1,1)
     else:                           wave=0.0
-    last = smoothing_cache.get(id(it), frame, lambda: wave)
+    last = smoothing_cache.get(id(it), wave)
     val  = last*it.smoothing + wave*(1-it.smoothing) if it.smoothing else wave
     smoothing_cache[id(it)] = val
     out  = it.base_value + it.amplitude*val
@@ -65,6 +66,19 @@ def set_channel(obj, ch, v):
     if ch=='SCL_Y': obj.scale.y=v
     if ch=='SCL_Z': obj.scale.z=v
     if ch=='SCL_ALL': obj.scale=(v,v,v)
+
+def get_channel_value(obj, ch):
+    if ch=='LOC_X': return obj.location.x
+    if ch=='LOC_Y': return obj.location.y
+    if ch=='LOC_Z': return obj.location.z
+    if ch=='ROT_X': return obj.rotation_euler.x
+    if ch=='ROT_Y': return obj.rotation_euler.y
+    if ch=='ROT_Z': return obj.rotation_euler.z
+    if ch=='SCL_X': return obj.scale.x
+    if ch=='SCL_Y': return obj.scale.y
+    if ch=='SCL_Z': return obj.scale.z
+    if ch=='SCL_ALL': return obj.scale.x
+    return 0.0
 
 def frame_handler(scene):
     f = scene.frame_current
@@ -123,14 +137,12 @@ class SignalItem(bpy.types.PropertyGroup):
     amplitude:    FloatProperty(default=1.0)
     frequency:    FloatProperty(default=1.0, min=0.001)
     phase_offset: FloatProperty(default=0.0)
-    time_offset:  FloatProperty(default=0.0)
     duration:     IntProperty(default=24, min=1)
     offset:       IntProperty(default=0)
     loop_count:   IntProperty(default=0)
     use_clamp:    BoolProperty(default=False)
     clamp_min:    FloatProperty(default=-1.0)
     clamp_max:    FloatProperty(default=1.0)
-    duty_cycle:   FloatProperty(default=0.5, min=0.01, max=0.99)
     noise_seed:   IntProperty(default=0)
     smoothing:    FloatProperty(default=0.0, min=0.0, max=1.0)
     base_value:   FloatProperty(default=0.0)
@@ -177,17 +189,15 @@ class VJLOOPER_OT_add_signal(bpy.types.Operator):
         it.amplitude    = sc.signal_new_amplitude
         it.frequency    = sc.signal_new_frequency
         it.phase_offset = sc.signal_new_phase
-        it.time_offset  = sc.signal_new_time_offset
         it.duration     = sc.signal_new_duration
         it.offset       = sc.signal_new_offset
         it.loop_count   = sc.signal_new_loops
         it.use_clamp    = sc.signal_new_clamp
         it.clamp_min    = sc.signal_new_clamp_min
         it.clamp_max    = sc.signal_new_clamp_max
-        it.duty_cycle   = sc.signal_new_duty
         it.noise_seed   = sc.signal_new_noise
         it.smoothing    = sc.signal_new_smoothing
-        it.base_value   = getattr(o, it.channel.lower(), 0.0)
+        it.base_value   = get_channel_value(o, it.channel)
         it.start_frame  = sc.frame_current
         return {'FINISHED'}
 
@@ -373,18 +383,19 @@ def register():
 
     sc = bpy.types.Scene
     sc.signal_new_channel   = EnumProperty(items=CHANNEL_ITEMS, default='LOC_X')
-    sc.signal_new_type      = EnumProperty(items=[('SINE','Sine',''),('COSINE','Cosine',''),('SQUARE','Square','')], default='SINE')
+    sc.signal_new_type      = EnumProperty(items=[
+        ('SINE','Sine',''),('COSINE','Cosine',''),('SQUARE','Square',''),
+        ('TRIANGLE','Triangle',''),('SAWTOOTH','Sawtooth',''),('NOISE','Noise','')
+    ], default='SINE')
     sc.signal_new_amplitude = FloatProperty(default=1.0)
     sc.signal_new_frequency = FloatProperty(default=1.0)
     sc.signal_new_phase     = FloatProperty(default=0.0)
-    sc.signal_new_time_offset = FloatProperty(default=0.0)
     sc.signal_new_duration  = IntProperty(default=24)
     sc.signal_new_offset    = IntProperty(default=0)
     sc.signal_new_loops     = IntProperty(default=0)
     sc.signal_new_clamp     = BoolProperty(default=False)
     sc.signal_new_clamp_min = FloatProperty(default=-1.0)
     sc.signal_new_clamp_max = FloatProperty(default=1.0)
-    sc.signal_new_duty      = FloatProperty(default=0.5)
     sc.signal_new_noise     = IntProperty(default=0)
     sc.signal_new_smoothing = FloatProperty(default=0.0)
     sc.signal_presets       = CollectionProperty(type=SignalPreset)
@@ -400,9 +411,9 @@ def unregister():
     del bpy.types.Object.signal_items
     for prop in [
         "signal_new_channel","signal_new_type","signal_new_amplitude","signal_new_frequency",
-        "signal_new_phase","signal_new_time_offset","signal_new_duration","signal_new_offset",
+        "signal_new_phase","signal_new_duration","signal_new_offset",
         "signal_new_loops","signal_new_clamp","signal_new_clamp_min","signal_new_clamp_max",
-        "signal_new_duty","signal_new_noise","signal_new_smoothing",
+        "signal_new_noise","signal_new_smoothing",
         "signal_presets","signal_preset_index","bake_start","bake_end","bake_channel"
     ]:
         delattr(bpy.types.Scene, prop)
