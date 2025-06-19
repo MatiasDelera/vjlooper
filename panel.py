@@ -3,6 +3,7 @@ import importlib
 import json
 import math
 import random
+import sys
 from mathutils import Vector
 from bpy.props import (
     BoolProperty, EnumProperty, FloatProperty, IntProperty,
@@ -136,14 +137,29 @@ class SignalItem(bpy.types.PropertyGroup):
     start_frame:  IntProperty(default=0)
 
 # ─────────────────────────────────────────────────────────────────────────────
+#   PROPERTY GROUP: SignalPreset
+# ─────────────────────────────────────────────────────────────────────────────
+class SignalPreset(bpy.types.PropertyGroup):
+    name: StringProperty(default="Preset")
+    data: StringProperty(default="")
+
+# ─────────────────────────────────────────────────────────────────────────────
 #   OPERATORS
 # ─────────────────────────────────────────────────────────────────────────────
 class VJLOOPER_OT_hot_reload(bpy.types.Operator):
     bl_idname = "vjlooper.hot_reload"
-    bl_label = "Hot-Reload Addon"
-    bl_description = "Recarga solo VjLooper sin reiniciar Blender"
+    bl_label = "Reload Addon"
+    bl_description = "Recarga VjLooper sin reiniciar Blender"
     def execute(self, context):
-        importlib.reload(__import__(__name__))
+        import sys
+        addon = sys.modules.get(__package__)
+        if addon:
+            if hasattr(addon, 'unregister'):
+                addon.unregister()
+            importlib.reload(addon.panel)
+            importlib.reload(addon)
+            if hasattr(addon, 'register'):
+                addon.register()
         self.report({'INFO'}, "VjLooper recargado")
         return {'FINISHED'}
 
@@ -301,6 +317,10 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
             col.prop(sc, "signal_new_type",    text="Tipo")
             col.prop(sc, "signal_new_amplitude")
             col.prop(sc, "signal_new_frequency")
+            col.prop(sc, "signal_new_phase", text="Phase Offset")
+            col.prop(sc, "signal_new_duration", text="Duration")
+            col.prop(sc, "signal_new_offset", text="Frame Offset")
+            col.prop(sc, "signal_new_loops", text="Loop Count")
             box.operator("vjlooper.add_signal")
 
             if obj.signal_items:
@@ -316,19 +336,22 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         L.operator("vjlooper.load_preset",  text="Load Preset")
         L.operator("vjlooper.export_presets",text="Export Presets")
         L.operator("vjlooper.import_presets",text="Import Presets")
+        if sc.signal_presets:
+            L.template_list("UI_UL_list", "vjlooper_presets", sc, "signal_presets", sc, "signal_preset_index")
 
         L.separator()
         L.operator("vjlooper.bake_settings",icon='REC',text="Bake Settings")
         L.operator("vjlooper.bake_animation",text="Bake Animation")
 
         L.separator()
-        L.operator("vjlooper.hot_reload",   icon='FILE_REFRESH', text="Hot-Reload")
+        L.operator("vjlooper.hot_reload",   icon='FILE_REFRESH', text="Reload Addon")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #   REGISTER / UNREGISTER
 # ─────────────────────────────────────────────────────────────────────────────
 classes = (
     SignalItem,
+    SignalPreset,
     VJLOOPER_OT_hot_reload,
     VJLOOPER_OT_add_signal,
     VJLOOPER_OT_remove_signal,
@@ -364,7 +387,7 @@ def register():
     sc.signal_new_duty      = FloatProperty(default=0.5)
     sc.signal_new_noise     = IntProperty(default=0)
     sc.signal_new_smoothing = FloatProperty(default=0.0)
-    sc.signal_presets       = CollectionProperty(type=bpy.types.PropertyGroup)
+    sc.signal_presets       = CollectionProperty(type=SignalPreset)
     sc.signal_preset_index  = IntProperty(default=0)
     sc.bake_start           = IntProperty(default=1)
     sc.bake_end             = IntProperty(default=250)
