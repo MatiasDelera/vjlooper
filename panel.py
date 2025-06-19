@@ -128,7 +128,7 @@ CHANNEL_ITEMS = [
 # ─────────────────────────────────────────────────────────────────────────────
 class SignalItem(bpy.types.PropertyGroup):
     enabled:      BoolProperty(default=True)
-    name:         StringProperty(default="Signal")
+    name:         StringProperty(default="Animation")
     channel:      EnumProperty(items=CHANNEL_ITEMS, default='LOC_X')
     signal_type:  EnumProperty(items=[
         ('SINE','Sine',''),('COSINE','Cosine',''),('SQUARE','Square',''),
@@ -177,13 +177,13 @@ class VJLOOPER_OT_hot_reload(bpy.types.Operator):
 
 class VJLOOPER_OT_add_signal(bpy.types.Operator):
     bl_idname    = "vjlooper.add_signal"
-    bl_label     = "Add Signal"
+    bl_label     = "Add Animation"
     bl_options   = {'REGISTER','UNDO'}
     def execute(self, ctx):
         o = ctx.object; sc = ctx.scene
         if not o: return {'CANCELLED'}
         it = o.signal_items.add()
-        it.name         = f"Signal {len(o.signal_items)}"
+        it.name         = f"Animation{len(o.signal_items)+1:02d}"
         it.channel      = sc.signal_new_channel
         it.signal_type  = sc.signal_new_type
         it.amplitude    = sc.signal_new_amplitude
@@ -203,7 +203,7 @@ class VJLOOPER_OT_add_signal(bpy.types.Operator):
 
 class VJLOOPER_OT_remove_signal(bpy.types.Operator):
     bl_idname = "vjlooper.remove_signal"
-    bl_label    = "Remove Signal"
+    bl_label    = "Remove Animation"
     bl_options  = {'REGISTER','UNDO'}
     index: IntProperty()
     def execute(self, ctx):
@@ -305,6 +305,50 @@ class VJLOOPER_OT_bake_animation(bpy.types.Operator):
                 ctx.object.keyframe_insert(data_path=sc.bake_channel.lower())
         return {'FINISHED'}
 
+class VJLOOPER_OT_set_pivot(bpy.types.Operator):
+    bl_idname = "vjlooper.set_pivot"
+    bl_label  = "Set Pivot"
+
+    location: EnumProperty(
+        name="Pivot",
+        items=[
+            ('CENTER', "Center", ""),
+            ('TL', "Top Left", ""),
+            ('TR', "Top Right", ""),
+            ('BL', "Bottom Left", ""),
+            ('BR', "Bottom Right", ""),
+        ],
+        default='CENTER'
+    )
+
+    def execute(self, ctx):
+        objs = [o for o in ctx.selected_objects if hasattr(o, "signal_items")]
+        if not objs:
+            self.report({'WARNING'}, "Select objects with animations")
+            return {'CANCELLED'}
+
+        cursor = ctx.scene.cursor.location.copy()
+        for obj in objs:
+            bbox = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
+            xs = [v.x for v in bbox]
+            ys = [v.y for v in bbox]
+            zs = [v.z for v in bbox]
+            if self.location == 'CENTER':
+                loc = Vector((sum(xs)/8, sum(ys)/8, sum(zs)/8))
+            elif self.location == 'TL':
+                loc = Vector((min(xs), max(ys), max(zs)))
+            elif self.location == 'TR':
+                loc = Vector((max(xs), max(ys), max(zs)))
+            elif self.location == 'BL':
+                loc = Vector((min(xs), min(ys), min(zs)))
+            else:  # BR
+                loc = Vector((max(xs), min(ys), min(zs)))
+
+            ctx.scene.cursor.location = loc
+            bpy.ops.object.origin_set({'object': obj, 'selected_objects':[obj], 'active_object': obj}, type='ORIGIN_CURSOR')
+        ctx.scene.cursor.location = cursor
+        return {'FINISHED'}
+
 # ─────────────────────────────────────────────────────────────────────────────
 #   PANEL UI
 # ─────────────────────────────────────────────────────────────────────────────
@@ -321,7 +365,7 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         L.separator()
 
         if obj:
-            box = L.box(); box.label(text="Crear Señal")
+            box = L.box(); box.label(text="Crear Animación")
             col = box.column(align=True)
             col.prop(sc, "signal_new_channel", text="Propiedad")
             col.prop(sc, "signal_new_type",    text="Tipo")
@@ -331,15 +375,15 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
             col.prop(sc, "signal_new_duration", text="Duration")
             col.prop(sc, "signal_new_offset", text="Frame Offset")
             col.prop(sc, "signal_new_loops", text="Loop Count")
-            box.operator("vjlooper.add_signal")
+            box.operator("vjlooper.add_signal", text="Add Animation")
 
             if obj.signal_items:
-                box2 = L.box(); box2.label(text="Señales")
+                box2 = L.box(); box2.label(text="Animaciones")
                 for i,it in enumerate(obj.signal_items):
                     row = box2.row(align=True)
                     row.prop(it, "enabled", text="")
                     row.label(text=it.name)
-                    row.operator("vjlooper.remove_signal", icon='X').index = i
+                    row.operator("vjlooper.remove_signal", icon='X', text="").index = i
 
         L.separator()
         L.operator("vjlooper.add_preset",   text="Save Preset")
@@ -352,6 +396,16 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         L.separator()
         L.operator("vjlooper.bake_settings",icon='REC',text="Bake Settings")
         L.operator("vjlooper.bake_animation",text="Bake Animation")
+
+        L.separator()
+        box_p = L.box(); box_p.label(text="Set Pivot")
+        row = box_p.row(align=True)
+        row.operator("vjlooper.set_pivot", text="Center").location='CENTER'
+        row.operator("vjlooper.set_pivot", text="TL").location='TL'
+        row.operator("vjlooper.set_pivot", text="TR").location='TR'
+        row2 = box_p.row(align=True)
+        row2.operator("vjlooper.set_pivot", text="BL").location='BL'
+        row2.operator("vjlooper.set_pivot", text="BR").location='BR'
 
         L.separator()
         L.operator("vjlooper.hot_reload",   icon='FILE_REFRESH', text="Reload Addon")
@@ -372,6 +426,7 @@ classes = (
     VJLOOPER_OT_import_presets,
     VJLOOPER_OT_bake_settings,
     VJLOOPER_OT_bake_animation,
+    VJLOOPER_OT_set_pivot,
     VJLOOPER_PT_panel,
 )
 
