@@ -613,14 +613,19 @@ def register():
         try:
             bpy.utils.register_class(c)
         except ValueError:
-            # Allow re-registration if Blender left classes registered
-            bpy.utils.unregister_class(c)
+            # Class may be left registered from a previous version
+            existing = getattr(bpy.types, c.__name__, None)
+            if existing:
+                bpy.utils.unregister_class(existing)
             bpy.utils.register_class(c)
 
 
 def unregister():
     for c in reversed(classes):
+        existing = getattr(bpy.types, c.__name__, None)
+        if not existing:
+            continue
         try:
-            bpy.utils.unregister_class(c)
+            bpy.utils.unregister_class(existing)
         except RuntimeError:
             pass
