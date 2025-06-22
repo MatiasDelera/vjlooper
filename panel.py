@@ -20,6 +20,7 @@ from bpy.props import (
     FloatProperty,
     FloatVectorProperty,
     IntProperty,
+    PointerProperty,
     StringProperty,
     CollectionProperty,
 )
@@ -119,6 +120,18 @@ def get_channel_value(obj, ch):
     if ch == 'SCL_Z': return obj.scale.z
     if ch == 'SCL_ALL': return obj.scale.x
     return 0.0
+
+def get_materials_list(scene):
+    """Return list of materials filtered by scene.vj_only_used."""
+    if getattr(scene, "vj_only_used", False):
+        return [
+            m for m in bpy.data.materials
+            if any(
+                o for o in bpy.data.objects
+                if m.name in [slot.material.name for slot in o.material_slots if slot.material]
+            )
+        ]
+    return list(bpy.data.materials)
 
 def frame_handler(scene):
     """Update object channels for the current frame."""
@@ -338,6 +351,18 @@ class VJLOOPER_UL_presets(bpy.types.UIList):
         self._cached_order = order
         return flags, order
 
+class VJMaterialItem(bpy.types.PropertyGroup):
+    """Wrapper to hold a reference to a material."""
+    material: PointerProperty(type=bpy.types.Material)
+
+class VJLOOPER_UL_materials(bpy.types.UIList):
+    """List UI for available materials."""
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        mat = item if isinstance(item, bpy.types.Material) else item.material
+        if mat:
+            layout.template_icon(mat)
+            layout.label(text=mat.name)
+
 class VJLOOPER_Preferences(bpy.types.AddonPreferences):
     """Addon preferences for VjLooper."""
     bl_idname = __package__
@@ -500,6 +525,16 @@ class VJLOOPER_OT_load_preset(bpy.types.Operator):
             return {'CANCELLED'}
         arr = json.loads(pr.data)
         apply_preset_to_object(ctx.object, arr, sc.frame_current, sc.preset_mirror)
+        mat_name = pr.name
+        if mat_name in bpy.data.materials:
+            mat = bpy.data.materials[mat_name]
+            targets = ctx.selected_objects or [ctx.object]
+            for ob in targets:
+                if ob.type == 'MESH':
+                    if ob.data.materials:
+                        ob.data.materials[0] = mat
+                    else:
+                        ob.data.materials.append(mat)
         return {'FINISHED'}
 
 class VJLOOPER_OT_apply_preset_multi(bpy.types.Operator):
@@ -698,6 +733,87 @@ class VJLOOPER_OT_set_pivot(bpy.types.Operator):
         ctx.scene.cursor.location = cursor
         return {'FINISHED'}
 
+class VJLOOPER_OT_apply_mat_sel(bpy.types.Operator):
+    """Apply chosen material to selected objects."""
+    bl_idname = "vjlooper.apply_mat_sel"
+    bl_label = "Apply Material to Selection"
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        mats = get_materials_list(sc)
+        idx = sc.vj_material_index
+        if idx >= len(mats):
+            return {'CANCELLED'}
+        mat = mats[idx]
+        for ob in ctx.selected_objects:
+            if ob.type == 'MESH':
+                if ob.data.materials:
+                    ob.data.materials[0] = mat
+                else:
+                    ob.data.materials.append(mat)
+        return {'FINISHED'}
+
+class VJLOOPER_OT_apply_mat_coll(bpy.types.Operator):
+    """Apply chosen material to all objects in target collection."""
+    bl_idname = "vjlooper.apply_mat_coll"
+    bl_label = "Apply Material to Collection"
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        coll = sc.vj_target_collection
+        mats = get_materials_list(sc)
+        idx = sc.vj_material_index
+        if not coll or idx >= len(mats):
+            return {'CANCELLED'}
+        mat = mats[idx]
+        for ob in coll.all_objects:
+            if ob.type == 'MESH':
+                if ob.data.materials:
+                    ob.data.materials[0] = mat
+                else:
+                    ob.data.materials.append(mat)
+        return {'FINISHED'}
+
+class VJLOOPER_OT_select_with_mat(bpy.types.Operator):
+    """Select all objects using the active material."""
+    bl_idname = "vjlooper.select_with_mat"
+    bl_label = "Select Objects With Material"
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        mats = get_materials_list(sc)
+        idx = sc.vj_material_index
+        if idx >= len(mats):
+            return {'CANCELLED'}
+        mat = mats[idx]
+        bpy.ops.object.select_all(action='DESELECT')
+        for ob in bpy.data.objects:
+            if any(s.material == mat for s in ob.material_slots):
+                ob.select_set(True)
+        return {'FINISHED'}
+
+class VJLOOPER_OT_random_hue_shift(bpy.types.Operator):
+    """Randomize hue around active material."""
+    bl_idname = "vjlooper.random_hue_shift"
+    bl_label = "Random Hue Shift"
+
+    range: FloatProperty(default=0.1, min=0.0, max=1.0)
+
+    def execute(self, ctx):
+        import colorsys
+        sc = ctx.scene
+        mats = get_materials_list(sc)
+        idx = sc.vj_material_index
+        if idx >= len(mats):
+            return {'CANCELLED'}
+        mat = mats[idx]
+        col = mat.diffuse_color
+        h, s, v = colorsys.rgb_to_hsv(col[0], col[1], col[2])
+        h = (h + random.uniform(-self.range, self.range)) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(h, s, v)
+        mat.diffuse_color = (r, g, b, col[3])
+        return {'FINISHED'}
+
 # ---------------------------------------------------------------------------
 #   PANEL UI
 # ---------------------------------------------------------------------------
@@ -754,6 +870,12 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         h.label(text="Bake")
         if sc.ui_show_bake:
             self.draw_bake_ui(col)
+
+        h = col.row()
+        h.prop(sc, "ui_show_materials", text="", icon='TRIA_DOWN' if sc.ui_show_materials else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Materials")
+        if sc.ui_show_materials:
+            self.draw_materials_ui(col, ctx)
 
         h = col.row()
         h.prop(sc, "ui_show_misc", text="", icon='TRIA_DOWN' if sc.ui_show_misc else 'TRIA_RIGHT', emboss=False)
@@ -884,6 +1006,29 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         col.operator("vjlooper.bake_animation", text="Bake Animation")
 
     # ---------------------------------------------------------------------
+    #   Materials
+    # ---------------------------------------------------------------------
+    def draw_materials_ui(self, L, ctx):
+        sc = ctx.scene
+        box = L.box()
+        box.label(text="Materials")
+        if sc.vj_only_used:
+            used = get_materials_list(sc)
+            sc.vj_filtered_materials.clear()
+            for m in used:
+                item = sc.vj_filtered_materials.add()
+                item.material = m
+            data_src, prop = sc, "vj_filtered_materials"
+        else:
+            data_src, prop = bpy.data, "materials"
+        box.template_list("VJLOOPER_UL_materials", "", data_src, prop, sc, "vj_material_index", rows=4)
+        row = box.row(align=True)
+        row.operator("vjlooper.apply_mat_sel", text="Apply to Selection")
+        row.operator("vjlooper.apply_mat_coll", text="Apply to Collection")
+        box.prop(sc, "vj_target_collection")
+        box.prop(sc, "vj_only_used", text="Show only used")
+
+    # ---------------------------------------------------------------------
     #   Miscelaneas
     # ---------------------------------------------------------------------
     def draw_misc_ui(self, L, ctx):
@@ -937,6 +1082,8 @@ classes = (
     SignalItem,
     SignalPreset,
     VJLOOPER_UL_presets,
+    VJMaterialItem,
+    VJLOOPER_UL_materials,
     VJLOOPER_OT_hot_reload,
     VJLOOPER_OT_add_signal,
     VJLOOPER_OT_remove_signal,
@@ -952,6 +1099,10 @@ classes = (
     VJLOOPER_OT_bake_animation,
     VJLOOPER_OT_toggle_preset_brush,
     VJLOOPER_OT_set_pivot,
+    VJLOOPER_OT_apply_mat_sel,
+    VJLOOPER_OT_apply_mat_coll,
+    VJLOOPER_OT_select_with_mat,
+    VJLOOPER_OT_random_hue_shift,
     VJLOOPER_PT_panel,
 )
 
@@ -1003,6 +1154,7 @@ def register():
     sc.ui_show_items   = BoolProperty(default=True)
     sc.ui_show_presets = BoolProperty(default=True)
     sc.ui_show_bake    = BoolProperty(default=True)
+    sc.ui_show_materials = BoolProperty(default=True)
     sc.ui_show_misc    = BoolProperty(default=True)
 
     sc.multi_offset_frames  = IntProperty(default=0, description="Frame offset between objects")
@@ -1012,6 +1164,11 @@ def register():
     sc.bake_start   = IntProperty(default=1)
     sc.bake_end     = IntProperty(default=250)
     sc.bake_channel = EnumProperty(items=CHANNEL_BAKE, default='LOC')
+
+    sc.vj_material_index = IntProperty(default=0)
+    sc.vj_target_collection = PointerProperty(type=bpy.types.Collection, name="Target Collection")
+    sc.vj_only_used = BoolProperty(name="Only used", default=False)
+    sc.vj_filtered_materials = CollectionProperty(type=VJMaterialItem)
 
     register_keymaps()
     load_presets_from_disk()
@@ -1044,8 +1201,9 @@ def unregister():
         "signal_new_clamp_min", "signal_new_clamp_max", "signal_new_noise",
         "signal_new_smoothing", "signal_presets", "signal_preset_index",
         "preset_category_filter", "category_rename_from", "category_rename_to",
-        "ui_show_create", "ui_show_items", "ui_show_presets", "ui_show_bake", "ui_show_misc",
+        "ui_show_create", "ui_show_items", "ui_show_presets", "ui_show_bake", "ui_show_materials", "ui_show_misc",
         "multi_offset_frames", "preset_mirror", "preset_brush_active",
-        "bake_start", "bake_end", "bake_channel"
+        "bake_start", "bake_end", "bake_channel",
+        "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials"
     ]:
         delattr(bpy.types.Scene, prop)
