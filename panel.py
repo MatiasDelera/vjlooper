@@ -193,7 +193,12 @@ def save_presets_to_disk():
     """Persist presets to the configured autosave path."""
     sc = bpy.context.scene
     data = [
-        {"name": p.name, "data": json.loads(p.data), "preview_icon": p.preview_icon}
+        {
+            "name": p.name,
+            "data": json.loads(p.data),
+            "preview_icon": p.preview_icon,
+            "category": p.category,
+        }
         for p in sc.signal_presets
     ]
     path = get_preset_file()
@@ -212,6 +217,7 @@ def load_presets_from_disk():
             p.name = e["name"]
             p.data = json.dumps(e["data"])
             p.preview_icon = e.get("preview_icon", "")
+            p.category = e.get("category", "General")
 
 # ---------------------------------------------------------------------------
 #   BAKING
@@ -288,6 +294,7 @@ class SignalPreset(bpy.types.PropertyGroup):
     name: StringProperty(default="Preset")
     data: StringProperty(default="")
     preview_icon: StringProperty(default="")
+    category: StringProperty(default="General")
 
 class VJLOOPER_UL_presets(bpy.types.UIList):
     """List of saved presets with small icons."""
@@ -302,10 +309,34 @@ class VJLOOPER_UL_presets(bpy.types.UIList):
             'COSINE':   'IPO_ELASTIC',
             'NOISE':    'RNDCURVE',
         }
+        presets = getattr(data, "signal_presets")
+        order = getattr(self, "_cached_order", None)
+        prev = None
+        if order and index > 0:
+            prev = presets[order[index - 1]]
+        elif not order and index > 0:
+            prev = presets[index - 1]
+        if index == 0 or (prev and prev.category != item.category):
+            layout.label(text=item.category, icon='FILE_FOLDER')
+        row = layout.row()
         if not validate_preset(item.data):
-            layout.alert = True
-        layout.label(text="", icon=icon_map.get(item.preview_icon, 'PRESET'))
-        layout.label(text=item.name)
+            row.alert = True
+        row.label(text="", icon=icon_map.get(item.preview_icon, 'PRESET'))
+        row.label(text=item.name)
+
+    def filter_items(self, context, data, propname):
+        items = list(getattr(data, propname))
+        filt = context.scene.preset_category_filter.lower()
+        order = [i for i, it in sorted(enumerate(items), key=lambda e: (e[1].category.lower(), e[1].name.lower()))]
+        flags = []
+        for i in order:
+            it = items[i]
+            if filt and filt not in it.category.lower():
+                flags.append(self.bitflag_filter_item)
+            else:
+                flags.append(0)
+        self._cached_order = order
+        return flags, order
 
 class VJLOOPER_Preferences(bpy.types.AddonPreferences):
     """Addon preferences for VjLooper."""
@@ -434,6 +465,7 @@ class VJLOOPER_OT_add_preset(bpy.types.Operator):
     bl_label  = "Save Preset"
 
     name: StringProperty(default="Preset")
+    category: StringProperty(default="General")
 
     def invoke(self, ctx, ev):
         return ctx.window_manager.invoke_props_dialog(self)
@@ -449,6 +481,7 @@ class VJLOOPER_OT_add_preset(bpy.types.Operator):
         pr = sc.signal_presets.add()
         pr.name = self.name
         pr.data = json.dumps(data)
+        pr.category = self.category
         if ctx.object.signal_items:
             pr.preview_icon = ctx.object.signal_items[0].signal_type
         return {'FINISHED'}
@@ -519,6 +552,7 @@ class VJLOOPER_OT_export_presets(bpy.types.Operator, bpy.types.ExportHelper):
                 "name": p.name,
                 "data": json.loads(p.data),
                 "preview_icon": p.preview_icon,
+                "category": p.category,
             }
             for p in ctx.scene.signal_presets
         ]
@@ -542,6 +576,21 @@ class VJLOOPER_OT_import_presets(bpy.types.Operator, bpy.types.ImportHelper):
             p.name = e["name"]
             p.data = json.dumps(e["data"])
             p.preview_icon = e.get("preview_icon", "")
+            p.category = e.get("category", "General")
+        return {'FINISHED'}
+
+class VJLOOPER_OT_rename_category(bpy.types.Operator):
+    """Rename a preset category across all presets."""
+    bl_idname = "vjlooper.rename_category"
+    bl_label = "Rename Category"
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        old = sc.category_rename_from
+        new = sc.category_rename_to
+        for p in sc.signal_presets:
+            if p.category == old:
+                p.category = new
         return {'FINISHED'}
 
 class VJLOOPER_OT_bake_settings(bpy.types.Operator):
@@ -679,11 +728,38 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
             row.alert = True
         layout.separator()
 
-        self.draw_create_ui(layout, ctx)
-        self.draw_items_ui(layout, ctx)
-        self.draw_presets_ui(layout, ctx)
-        self.draw_bake_ui(layout)
-        self.draw_misc_ui(layout, ctx)
+        col = layout.column()
+        col.use_property_split = True
+
+        h = col.row()
+        h.prop(sc, "ui_show_create", text="", icon='TRIA_DOWN' if sc.ui_show_create else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Create")
+        if sc.ui_show_create:
+            self.draw_create_ui(col, ctx)
+
+        h = col.row()
+        h.prop(sc, "ui_show_items", text="", icon='TRIA_DOWN' if sc.ui_show_items else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Animations")
+        if sc.ui_show_items:
+            self.draw_items_ui(col, ctx)
+
+        h = col.row()
+        h.prop(sc, "ui_show_presets", text="", icon='TRIA_DOWN' if sc.ui_show_presets else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Presets")
+        if sc.ui_show_presets:
+            self.draw_presets_ui(col, ctx)
+
+        h = col.row()
+        h.prop(sc, "ui_show_bake", text="", icon='TRIA_DOWN' if sc.ui_show_bake else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Bake")
+        if sc.ui_show_bake:
+            self.draw_bake_ui(col)
+
+        h = col.row()
+        h.prop(sc, "ui_show_misc", text="", icon='TRIA_DOWN' if sc.ui_show_misc else 'TRIA_RIGHT', emboss=False)
+        h.label(text="Misc")
+        if sc.ui_show_misc:
+            self.draw_misc_ui(col, ctx)
 
     # ---------------------------------------------------------------------
     #   Seccion CREAR / EDITAR animaciones
@@ -774,6 +850,11 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         col.operator("vjlooper.load_preset", text="Load Preset")
         col.operator("vjlooper.export_presets", text="Export Presets")
         col.operator("vjlooper.import_presets", text="Import Presets")
+        col.prop(sc, "preset_category_filter", text="Category Filter")
+        rown = col.row(align=True)
+        rown.prop(sc, "category_rename_from", text="Old")
+        rown.prop(sc, "category_rename_to", text="New")
+        rown.operator("vjlooper.rename_category", text="Rename")
         if sc.signal_presets:
             col.template_list(
                 "VJLOOPER_UL_presets",
@@ -781,6 +862,7 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
                 sc, "signal_presets",
                 sc, "signal_preset_index"
             )
+            col.prop(sc.signal_presets[sc.signal_preset_index], "category", text="Category")
             row = col.row(align=True)
             row.prop(sc, "multi_offset_frames", text="Offset")
             row.operator("vjlooper.apply_preset_multi", text="Apply to Selection")
@@ -865,6 +947,7 @@ classes = (
     VJLOOPER_OT_remove_preset,
     VJLOOPER_OT_export_presets,
     VJLOOPER_OT_import_presets,
+    VJLOOPER_OT_rename_category,
     VJLOOPER_OT_bake_settings,
     VJLOOPER_OT_bake_animation,
     VJLOOPER_OT_toggle_preset_brush,
@@ -913,6 +996,14 @@ def register():
 
     sc.signal_presets       = CollectionProperty(type=SignalPreset)
     sc.signal_preset_index  = IntProperty(default=0)
+    sc.preset_category_filter = StringProperty(default="", description="Filter presets by category")
+    sc.category_rename_from  = StringProperty(default="")
+    sc.category_rename_to    = StringProperty(default="")
+    sc.ui_show_create  = BoolProperty(default=True)
+    sc.ui_show_items   = BoolProperty(default=True)
+    sc.ui_show_presets = BoolProperty(default=True)
+    sc.ui_show_bake    = BoolProperty(default=True)
+    sc.ui_show_misc    = BoolProperty(default=True)
 
     sc.multi_offset_frames  = IntProperty(default=0, description="Frame offset between objects")
     sc.preset_mirror        = BoolProperty(default=False, description="Mirror amplitude when loading")
@@ -952,6 +1043,8 @@ def unregister():
         "signal_new_offset", "signal_new_loops", "signal_new_clamp",
         "signal_new_clamp_min", "signal_new_clamp_max", "signal_new_noise",
         "signal_new_smoothing", "signal_presets", "signal_preset_index",
+        "preset_category_filter", "category_rename_from", "category_rename_to",
+        "ui_show_create", "ui_show_items", "ui_show_presets", "ui_show_bake", "ui_show_misc",
         "multi_offset_frames", "preset_mirror", "preset_brush_active",
         "bake_start", "bake_end", "bake_channel"
     ]:
