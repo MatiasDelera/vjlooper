@@ -64,11 +64,18 @@ def register():
     signals.register()
     operators.register()
     tunnelfx.register()
+    ui.register_props()
+    # ensure collections exist before UI classes are registered
+    if not bpy.context.scene.signal_presets:
+        p = bpy.context.scene.signal_presets.add()
+        p.name = "Empty"
+        p.data = "[]"
     ui.register()
 
 
 def unregister():
     ui.unregister()
+    ui.unregister_props()
     operators.unregister()
     signals.unregister()
     tunnelfx.unregister()
