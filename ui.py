@@ -443,11 +443,6 @@ def register_props():
     sc.vj_only_used = BoolProperty(name="Only used", default=False)
     sc.vj_filtered_materials = CollectionProperty(type=VJMaterialItem)
 
-    if not bpy.context.scene.signal_presets:
-        p = bpy.context.scene.signal_presets.add()
-        p.name = "Empty"
-        p.data = "[]"
-
 
 def unregister_props():
     """Remove custom properties from Blender data-blocks."""

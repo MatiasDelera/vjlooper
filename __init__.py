@@ -60,30 +60,32 @@ if not os.environ.get("VJ_TESTING"):
 
 
 def register():
+    ui.register_props()
+    if not bpy.context.scene.signal_presets:
+        p = bpy.context.scene.signal_presets.add()
+        p.name = "Empty"
+        p.data = "[]"
+    operators.register()
+    tunnelfx.register()
+    ui.register()
     try:
         bpy.app.translations.register(__package__, translation_dict)
     except ValueError:
         bpy.app.translations.unregister(__package__)
         bpy.app.translations.register(__package__, translation_dict)
     signals.register()
-    operators.register()
-    tunnelfx.register()
-    ui.register_props()
-    # ensure collections exist before UI classes are registered
-    if not bpy.context.scene.signal_presets:
-        p = bpy.context.scene.signal_presets.add()
-        p.name = "Empty"
-        p.data = "[]"
-    ui.register()
 
 
 def unregister():
-    ui.unregister()
-    ui.unregister_props()
-    operators.unregister()
     signals.unregister()
+    try:
+        bpy.app.translations.unregister(__package__)
+    except KeyError:
+        pass
+    ui.unregister()
     tunnelfx.unregister()
-    bpy.app.translations.unregister(__package__)
+    operators.unregister()
+    ui.unregister_props()
 
 
 if __name__ == "__main__":
