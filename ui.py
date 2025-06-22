@@ -27,15 +27,16 @@ class SignalItem(PropertyGroup):
         ('TRIANGLE','Triangle',''),('SAWTOOTH','Sawtooth',''),('NOISE','Noise','')
     ], default='SINE')
     amplitude: FloatProperty(default=1.0, description="Amplitude in Blender units")
-    frequency: FloatProperty(default=1.0, min=0.001, description="Cycles per animation length")
+    frequency: FloatProperty(default=1.0, min=0.001, description="Cycles per animation length", update=signals.update_frequency)
     amplitude_min: FloatProperty(default=0.5, description="Minimum random amplitude")
     amplitude_max: FloatProperty(default=1.5, description="Maximum random amplitude")
     frequency_min: FloatProperty(default=0.5, min=0.001, description="Minimum random frequency")
     frequency_max: FloatProperty(default=2.0, min=0.001, description="Maximum random frequency")
     phase_offset: FloatProperty(default=0.0, description="Phase offset in degrees")
     duration: IntProperty(default=24, min=1, description="Frames per cycle")
-    offset: IntProperty(default=0, description="Start frame offset")
+    offset: IntProperty(default=0, description="Start frame offset", update=signals.update_offset)
     loop_count: IntProperty(default=0, description="Number of loops (0=inf)")
+    blend_frames: IntProperty(default=0, description="Blend frames at loop end")
     use_clamp: BoolProperty(default=False, description="Clamp output range")
     clamp_min: FloatProperty(default=-1.0)
     clamp_max: FloatProperty(default=1.0)
@@ -229,7 +230,10 @@ class VJLOOPER_PT_panel(Panel):
                 row = sub.row()
                 c1, c2 = row.column(), row.column()
                 c1.prop(it, "amplitude")
-                c1.prop(it, "frequency")
+                rowf = c1.row(align=True)
+                rowf.prop(it, "frequency")
+                perfect = abs(round(it.frequency * it.duration) - it.frequency * it.duration) < 1e-4
+                rowf.label(icon='CHECKMARK' if perfect else 'ERROR')
                 c2.prop(it, "phase_offset")
                 c2.prop(it, "duration")
                 r = sub.row()
@@ -241,6 +245,7 @@ class VJLOOPER_PT_panel(Panel):
                 sub.operator("vjlooper.randomize_signal", text="Randomize").index = i
                 sub.prop(it, "offset")
                 sub.prop(it, "loop_count")
+                sub.prop(it, "blend_frames")
                 sub.prop(it, "use_clamp")
                 if it.use_clamp:
                     r = sub.row(align=True)
@@ -315,6 +320,7 @@ class VJLOOPER_PT_panel(Panel):
         row2.operator("vjlooper.set_pivot", text="BR").location = 'BR'
 
         L.separator()
+        L.prop(ctx.scene, "loop_lock", text="Loop Lock")
         L.operator("vjlooper.hot_reload", icon='FILE_REFRESH', text="Reload Addon")
 
 
@@ -401,6 +407,7 @@ def register():
     sc.offset_radial_factor = FloatProperty(default=1.0, description="Frames per unit for radial offset")
     sc.offset_bpm = IntProperty(default=120, description="BPM for beat grid")
     sc.preset_mirror = BoolProperty(default=False, description="Mirror amplitude when loading")
+    sc.loop_lock = BoolProperty(default=False, description="Quantize signals for perfect loops")
     sc.preset_brush_active = BoolProperty(default=False, description="Enable preset brush mode")
     sc.brush_offset_step = IntProperty(default=0, description="Frame step when using preset brush")
 
@@ -439,6 +446,7 @@ def unregister():
         "ui_show_create", "ui_show_items", "ui_show_presets", "ui_show_bake", "ui_show_materials", "ui_show_misc",
         "multi_offset_frames", "offset_mode", "offset_radial_factor", "offset_bpm",
         "preset_mirror", "preset_brush_active", "brush_offset_step",
+        "loop_lock",
         "bake_start", "bake_end", "bake_channel",
         "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials",
     ]:
