@@ -104,7 +104,7 @@ class VJLOOPER_UL_materials(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         mat = item if isinstance(item, bpy.types.Material) else item.material
         if mat:
-            layout.template_icon(mat)
+            layout.template_preview(mat, show_buttons=False)
             layout.label(text=mat.name)
 
 
@@ -115,12 +115,14 @@ class VJLOOPER_Preferences(AddonPreferences):
     brush_color: FloatVectorProperty(name="Brush Color", subtype='COLOR', size=4, default=(1.0, 0.5, 0.2, 1.0))
     autosave_path: StringProperty(name="Autosave Path", subtype='FILE_PATH', default=os.path.join(os.path.dirname(__file__), "presets.json"))
     use_preview: BoolProperty(name="3D Preview", default=False)
+    hue_shift_range: FloatProperty(name="Hue Shift Range", default=0.1, min=0.0, max=1.0)
 
     def draw(self, context):
         self.layout.prop(self, "use_keymaps")
         self.layout.prop(self, "brush_color")
         self.layout.prop(self, "autosave_path")
         self.layout.prop(self, "use_preview")
+        self.layout.prop(self, "hue_shift_range")
 
 
 class VJLOOPER_PT_panel(Panel):
@@ -233,6 +235,7 @@ class VJLOOPER_PT_panel(Panel):
                 rowf = c1.row(align=True)
                 rowf.prop(it, "frequency")
                 perfect = abs(round(it.frequency * it.duration) - it.frequency * it.duration) < 1e-4
+                rowf.alert = not perfect
                 rowf.label(icon='CHECKMARK' if perfect else 'ERROR')
                 c2.prop(it, "phase_offset")
                 c2.prop(it, "duration")
@@ -304,7 +307,8 @@ class VJLOOPER_PT_panel(Panel):
         row = box.row(align=True)
         row.operator("vjlooper.apply_mat_sel", text="Apply to Selection")
         row.operator("vjlooper.apply_mat_coll", text="Apply to Collection")
-        box.prop(sc, "vj_target_collection")
+        rowc = box.row()
+        rowc.prop(sc, "vj_target_collection", text="", icon='OUTLINER_COLLECTION')
         box.prop(sc, "vj_only_used", text="Show only used")
 
     def draw_misc_ui(self, L, ctx):
