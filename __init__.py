@@ -20,6 +20,15 @@ if os.environ.get("VJ_TESTING"):
 else:
     import bpy
 
+
+def _scene():
+    """Return the current scene or fallback to first available scene."""
+    if hasattr(bpy.context, "scene") and bpy.context.scene:
+        return bpy.context.scene
+    if bpy.data.scenes:
+        return bpy.data.scenes[0]
+    return None
+
 if bpy.app.version < (3, 6, 0):
     bl_info["warning"] = "Limited support for Blender versions before 3.6"
 else:
@@ -62,8 +71,9 @@ if not os.environ.get("VJ_TESTING"):
 
 def register():
     ui.register_props()
-    if not bpy.context.scene.signal_presets:
-        p = bpy.context.scene.signal_presets.add()
+    sc = _scene()
+    if sc and not sc.signal_presets:
+        p = sc.signal_presets.add()
         p.name = "Empty"
         p.data = "[]"
     operators.register()

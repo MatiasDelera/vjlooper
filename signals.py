@@ -12,6 +12,15 @@ from .core import signals as core_signals
 from .core import persistence as core_persistence
 
 
+def _scene():
+    """Return the current scene or fallback to first available scene."""
+    if hasattr(bpy.context, "scene") and bpy.context.scene:
+        return bpy.context.scene
+    if bpy.data.scenes:
+        return bpy.data.scenes[0]
+    return None
+
+
 def _prefs():
     addon = bpy.context.preferences.addons.get(__package__)
     return getattr(addon, "preferences", None)
@@ -134,7 +143,8 @@ def calc_signal(it, obj, frame):
         clamp_max=it.clamp_max,
         blend_frames=getattr(it, "blend_frames", 0),
     )
-    loop_lock = getattr(bpy.context.scene, "loop_lock", False)
+    sc = _scene()
+    loop_lock = getattr(sc, "loop_lock", False) if sc else False
     return core_signals.calc_signal(params, frame, loop_lock=loop_lock)
 
 
@@ -277,7 +287,9 @@ def get_preset_file():
 
 def save_presets_to_disk():
     """Persist presets to the configured autosave path."""
-    sc = bpy.context.scene
+    sc = _scene()
+    if sc is None:
+        return
     data = [
         {
             "name": p.name,
@@ -293,7 +305,9 @@ def save_presets_to_disk():
 
 def load_presets_from_disk():
     """Load presets from the autosave file if it exists."""
-    sc = bpy.context.scene
+    sc = _scene()
+    if sc is None:
+        return
     path = Path(get_preset_file())
     presets = core_persistence.load_presets(path)
     if presets:
