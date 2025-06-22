@@ -52,6 +52,7 @@ translation_dict = {
         ("*", "Scale Y"): "Escala Y",
         ("*", "Scale Z"): "Escala Z",
         ("*", "Uniform Scale"): "Escala Uniforme",
+        ("*", "GN Scroll"): "Desplazamiento GN",
     }
 }
 
