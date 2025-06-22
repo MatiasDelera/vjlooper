@@ -2,6 +2,7 @@ import bpy
 import importlib
 import json
 import math
+import os
 import random
 import sys
 from mathutils import Vector
@@ -14,9 +15,12 @@ from bpy.props import (
 #   LÓGICA: cache, cálculo de señal y frame handler
 # ─────────────────────────────────────────────────────────────────────────────
 class SignalCache:
+    """Simple per-frame cache for computed signal values."""
+
     def __init__(self):
         self.cache = {}
         self.last_frame = -1
+
     def get(self, key, frame, calc):
         if frame != self.last_frame:
             self.cache.clear()
@@ -30,6 +34,8 @@ signal_cache = SignalCache()
 smoothing_cache = {}
 
 def apply_preset_to_object(obj, preset_data, base_frame=0, mirror=False, offset=0):
+    """Load a serialized preset onto ``obj`` at ``base_frame``."""
+
     obj.signal_items.clear()
     for d in preset_data:
         it = obj.signal_items.add()
@@ -41,6 +47,7 @@ def apply_preset_to_object(obj, preset_data, base_frame=0, mirror=False, offset=
 
 
 def calc_signal(it, obj, frame):
+    """Calculate value for ``it`` at ``frame`` on ``obj``."""
     sf = it.start_frame + it.offset
     if frame < sf:
         return it.base_value
@@ -73,6 +80,7 @@ def calc_signal(it, obj, frame):
     return out
 
 def set_channel(obj, ch, v):
+    """Write value ``v`` to object's channel ``ch``."""
     if ch=='LOC_X': obj.location.x=v
     if ch=='LOC_Y': obj.location.y=v
     if ch=='LOC_Z': obj.location.z=v
@@ -85,6 +93,7 @@ def set_channel(obj, ch, v):
     if ch=='SCL_ALL': obj.scale=(v,v,v)
 
 def get_channel_value(obj, ch):
+    """Return current value of channel ``ch`` from ``obj``."""
     if ch=='LOC_X': return obj.location.x
     if ch=='LOC_Y': return obj.location.y
     if ch=='LOC_Z': return obj.location.z
@@ -98,6 +107,8 @@ def get_channel_value(obj, ch):
     return 0.0
 
 def frame_handler(scene):
+    """Update object channels for the current frame."""
+
     f = scene.frame_current
     for obj in scene.objects:
         if hasattr(obj, "signal_items"):
@@ -107,7 +118,10 @@ def frame_handler(scene):
                     set_channel(obj, it.channel, v)
 
 brush_last_obj = None
+
 def preset_brush_handler(scene):
+    """Apply the active preset when selecting new objects."""
+
     global brush_last_obj
     if not scene.preset_brush_active:
         brush_last_obj = None
@@ -127,10 +141,34 @@ def preset_brush_handler(scene):
 #   PRESETS: validación JSON
 # ─────────────────────────────────────────────────────────────────────────────
 def validate_preset(data):
+    """Check if a preset string contains a valid JSON list."""
     try:
         return isinstance(json.loads(data), list)
     except:
         return False
+
+PRESET_FILE = os.path.join(os.path.dirname(__file__), "presets.json")
+
+def save_presets_to_disk():
+    """Persist presets to ``PRESET_FILE``."""
+
+    sc = bpy.context.scene
+    data = [{"name": p.name, "data": json.loads(p.data)} for p in sc.signal_presets]
+    with open(PRESET_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def load_presets_from_disk():
+    """Load presets from ``PRESET_FILE`` if it exists."""
+
+    sc = bpy.context.scene
+    if os.path.exists(PRESET_FILE):
+        arr = json.load(open(PRESET_FILE))
+        sc.signal_presets.clear()
+        for e in arr:
+            p = sc.signal_presets.add()
+            p.name = e["name"]
+            p.data = json.dumps(e["data"])
 
 # ─────────────────────────────────────────────────────────────────────────────
 #   BAKING
@@ -189,6 +227,20 @@ class SignalPreset(bpy.types.PropertyGroup):
     name: StringProperty(default="Preset")
     data: StringProperty(default="")
 
+
+class VJLOOPER_Preferences(bpy.types.AddonPreferences):
+    """Addon preferences for VjLooper."""
+
+    bl_idname = __package__
+
+    use_keymaps: BoolProperty(
+        name="Enable Default Shortcuts",
+        default=True,
+    )
+
+    def draw(self, context):
+        self.layout.prop(self, "use_keymaps")
+
 # ─────────────────────────────────────────────────────────────────────────────
 #   OPERATORS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -196,6 +248,7 @@ class VJLOOPER_OT_hot_reload(bpy.types.Operator):
     bl_idname = "vjlooper.hot_reload"
     bl_label = "Reload Addon"
     bl_description = "Recarga VjLooper sin reiniciar Blender"
+    """Reload the add-on modules."""
     def execute(self, context):
         import sys
         addon = sys.modules.get(__package__)
@@ -213,6 +266,7 @@ class VJLOOPER_OT_add_signal(bpy.types.Operator):
     bl_idname    = "vjlooper.add_signal"
     bl_label     = "Add Animation"
     bl_options   = {'REGISTER','UNDO'}
+    """Create a new SignalItem on the active object."""
     def execute(self, ctx):
         o = ctx.object; sc = ctx.scene
         if not o: return {'CANCELLED'}
@@ -239,6 +293,7 @@ class VJLOOPER_OT_remove_signal(bpy.types.Operator):
     bl_idname = "vjlooper.remove_signal"
     bl_label    = "Remove Animation"
     bl_options  = {'REGISTER','UNDO'}
+    """Delete a SignalItem from the active object."""
     index: IntProperty()
     def execute(self, ctx):
         o = ctx.object
@@ -251,6 +306,7 @@ class VJLOOPER_OT_add_preset(bpy.types.Operator):
     bl_idname = "vjlooper.add_preset"
     bl_label    = "Save Preset"
     name: StringProperty(default="Preset")
+    """Store current object signals as a new preset."""
     def invoke(self, ctx, ev): return ctx.window_manager.invoke_props_dialog(self)
     def execute(self, ctx):
         sc = ctx.scene; data=[]
@@ -265,6 +321,7 @@ class VJLOOPER_OT_add_preset(bpy.types.Operator):
 class VJLOOPER_OT_load_preset(bpy.types.Operator):
     bl_idname = "vjlooper.load_preset"
     bl_label    = "Load Preset"
+    """Apply the selected preset to the active object."""
     def execute(self, ctx):
         sc = ctx.scene; idx = sc.signal_preset_index
         pr = sc.signal_presets[idx]
@@ -278,6 +335,7 @@ class VJLOOPER_OT_load_preset(bpy.types.Operator):
 class VJLOOPER_OT_apply_preset_multi(bpy.types.Operator):
     bl_idname = "vjlooper.apply_preset_multi"
     bl_label  = "Apply Preset to Selection"
+    """Apply the active preset to all selected objects."""
 
     def execute(self, ctx):
         sc = ctx.scene; idx = sc.signal_preset_index
@@ -298,6 +356,7 @@ class VJLOOPER_OT_apply_preset_multi(bpy.types.Operator):
 class VJLOOPER_OT_remove_preset(bpy.types.Operator):
     bl_idname = "vjlooper.remove_preset"
     bl_label    = "Remove Preset"
+    """Delete the selected preset from the list."""
     def execute(self, ctx):
         sc = ctx.scene; sc.signal_presets.remove(sc.signal_preset_index)
         return {'FINISHED'}
@@ -307,6 +366,7 @@ class VJLOOPER_OT_export_presets(bpy.types.Operator, bpy.types.ExportHelper):
     bl_label      = "Export Presets"
     filename_ext  = ".json"
     filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
+    """Export all presets to a JSON file."""
     def execute(self, ctx):
         data = [{"name":p.name,"data":json.loads(p.data)} for p in ctx.scene.signal_presets]
         with open(self.filepath,'w') as f: json.dump(data,f,indent=2)
@@ -317,6 +377,7 @@ class VJLOOPER_OT_import_presets(bpy.types.Operator, bpy.types.ImportHelper):
     bl_label      = "Import Presets"
     filename_ext  = ".json"
     filter_glob: StringProperty(default="*.json", options={'HIDDEN'})
+    """Load presets from a JSON file."""
     def execute(self, ctx):
         arr = json.load(open(self.filepath))
         sc = ctx.scene; sc.signal_presets.clear()
@@ -332,6 +393,7 @@ class VJLOOPER_OT_bake_settings(bpy.types.Operator):
     start: IntProperty(default=1)
     end:   IntProperty(default=250)
     channel: EnumProperty(items=CHANNEL_BAKE, default='LOC')
+    """Configure bake range and channel."""
     def invoke(self, ctx, ev): return ctx.window_manager.invoke_props_dialog(self)
     def execute(self, ctx):
         sc = ctx.scene
@@ -343,6 +405,7 @@ class VJLOOPER_OT_bake_settings(bpy.types.Operator):
 class VJLOOPER_OT_bake_animation(bpy.types.Operator):
     bl_idname = "vjlooper.bake_animation"
     bl_label    = "Bake Animation"
+    """Bake procedural signals to keyframes."""
     def execute(self, ctx):
         sc = ctx.scene
         for f in range(sc.bake_start, sc.bake_end+1):
@@ -359,6 +422,7 @@ class VJLOOPER_OT_bake_animation(bpy.types.Operator):
 class VJLOOPER_OT_toggle_preset_brush(bpy.types.Operator):
     bl_idname = "vjlooper.toggle_preset_brush"
     bl_label  = "Toggle Preset Brush"
+    """Enable or disable preset brush mode."""
 
     def execute(self, ctx):
         sc = ctx.scene
@@ -374,6 +438,7 @@ class VJLOOPER_OT_toggle_preset_brush(bpy.types.Operator):
 class VJLOOPER_OT_set_pivot(bpy.types.Operator):
     bl_idname = "vjlooper.set_pivot"
     bl_label  = "Set Pivot"
+    """Move object origins to preset pivot positions."""
 
     location: EnumProperty(
         name="Pivot",
@@ -426,41 +491,60 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
     bl_category   = "VjLooper"
 
     def draw(self, ctx):
-        L = self.layout; sc = ctx.scene; obj = ctx.object
-        L.label(text="VjLooper Controls")
-        L.separator()
+        layout = self.layout
+        layout.label(text="VjLooper Controls")
+        layout.separator()
 
-        if obj:
-            box = L.box(); box.label(text="Crear Animación")
-            col = box.column(align=True)
-            col.prop(sc, "signal_new_channel", text="Propiedad")
-            col.prop(sc, "signal_new_type",    text="Tipo")
-            col.prop(sc, "signal_new_amplitude")
-            col.prop(sc, "signal_new_frequency")
-            col.prop(sc, "signal_new_phase", text="Phase Offset")
-            col.prop(sc, "signal_new_duration", text="Duration")
-            col.prop(sc, "signal_new_offset", text="Frame Offset")
-            col.prop(sc, "signal_new_loops", text="Loop Count")
-            box.operator("vjlooper.add_signal", text="Add Animation")
+        self.draw_create_ui(layout, ctx)
+        self.draw_items_ui(layout, ctx)
+        self.draw_presets_ui(layout, ctx)
+        self.draw_bake_ui(layout)
+        self.draw_misc_ui(layout, ctx)
 
-            boxg = L.box(); boxg.label(text="Global Scales")
-            boxg.prop(obj, "global_amp_scale", text="Amplitude Scale")
-            boxg.prop(obj, "global_freq_scale", text="Frequency Scale")
-            boxg.prop(obj, "global_dur_scale", text="Duration Scale")
+    def draw_create_ui(self, L, ctx):
+        """UI for creating and editing signals."""
 
-            if obj.signal_items:
-                box2 = L.box(); box2.label(text="Animaciones")
-                for i,it in enumerate(obj.signal_items):
-                    row = box2.row(align=True)
-                    row.prop(it, "enabled", text="")
-                    row.label(text=it.name)
-                    row.operator("vjlooper.remove_signal", icon='X', text="").index = i
+        sc = ctx.scene
+        obj = ctx.object
+        if not obj:
+            return
+        box = L.box(); box.label(text="Crear Animación")
+        col = box.column(align=True)
+        col.prop(sc, "signal_new_channel", text="Propiedad")
+        col.prop(sc, "signal_new_type",    text="Tipo")
+        col.prop(sc, "signal_new_amplitude")
+        col.prop(sc, "signal_new_frequency")
+        col.prop(sc, "signal_new_phase", text="Phase Offset")
+        col.prop(sc, "signal_new_duration", text="Duration")
+        col.prop(sc, "signal_new_offset", text="Frame Offset")
+        col.prop(sc, "signal_new_loops", text="Loop Count")
+        box.operator("vjlooper.add_signal", text="Add Animation")
 
-        L.separator()
+        boxg = L.box(); boxg.label(text="Global Scales")
+        boxg.prop(obj, "global_amp_scale", text="Amplitude Scale")
+        boxg.prop(obj, "global_freq_scale", text="Frequency Scale")
+        boxg.prop(obj, "global_dur_scale", text="Duration Scale")
+
+    def draw_items_ui(self, L, ctx):
+        """UI listing all animation items of the active object."""
+
+        obj = ctx.object
+        if obj and obj.signal_items:
+            box2 = L.box(); box2.label(text="Animaciones")
+            for i, it in enumerate(obj.signal_items):
+                row = box2.row(align=True)
+                row.prop(it, "enabled", text="")
+                row.label(text=it.name)
+                row.operator("vjlooper.remove_signal", icon='X', text="").index = i
+
+    def draw_presets_ui(self, L, ctx):
+        """Preset management UI."""
+
+        sc = ctx.scene
         L.operator("vjlooper.add_preset",   text="Save Preset")
         L.operator("vjlooper.load_preset",  text="Load Preset")
-        L.operator("vjlooper.export_presets",text="Export Presets")
-        L.operator("vjlooper.import_presets",text="Import Presets")
+        L.operator("vjlooper.export_presets", text="Export Presets")
+        L.operator("vjlooper.import_presets", text="Import Presets")
         if sc.signal_presets:
             L.template_list("UI_UL_list", "vjlooper_presets", sc, "signal_presets", sc, "signal_preset_index")
             row = L.row(align=True)
@@ -469,9 +553,15 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
             L.prop(sc, "preset_mirror", text="Mirror")
             L.operator("vjlooper.toggle_preset_brush", text="Toggle Preset Brush", depress=sc.preset_brush_active)
 
+    def draw_bake_ui(self, L):
+        """Operators for baking animations."""
+
         L.separator()
-        L.operator("vjlooper.bake_settings",icon='REC',text="Bake Settings")
-        L.operator("vjlooper.bake_animation",text="Bake Animation")
+        L.operator("vjlooper.bake_settings", icon='REC', text="Bake Settings")
+        L.operator("vjlooper.bake_animation", text="Bake Animation")
+
+    def draw_misc_ui(self, L, ctx):
+        """Miscellaneous utilities."""
 
         L.separator()
         box_p = L.box(); box_p.label(text="Set Pivot")
@@ -484,12 +574,43 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         row2.operator("vjlooper.set_pivot", text="BR").location='BR'
 
         L.separator()
-        L.operator("vjlooper.hot_reload",   icon='FILE_REFRESH', text="Reload Addon")
+        L.operator("vjlooper.hot_reload", icon='FILE_REFRESH', text="Reload Addon")
+
+# ─────────────────────────────────────────────────────────────────────────────
+#   KEYMAPS
+# ─────────────────────────────────────────────────────────────────────────────
+addon_keymaps = []
+
+def register_keymaps():
+    """Register default keymaps if enabled in preferences."""
+
+    prefs = bpy.context.preferences.addons[__package__].preferences
+    if not prefs.use_keymaps:
+        return
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc:
+        km = kc.keymaps.new(name='3D View', space_type='VIEW_3D')
+        kmi = km.keymap_items.new('vjlooper.load_preset', 'P', 'PRESS', ctrl=True, shift=True)
+        addon_keymaps.append((km, kmi))
+        kmi = km.keymap_items.new('vjlooper.toggle_preset_brush', 'L', 'PRESS', shift=True)
+        addon_keymaps.append((km, kmi))
+
+def unregister_keymaps():
+    """Remove registered keymaps."""
+
+    wm = bpy.context.window_manager
+    kc = wm.keyconfigs.addon
+    if kc:
+        for km, kmi in addon_keymaps:
+            km.keymap_items.remove(kmi)
+    addon_keymaps.clear()
 
 # ─────────────────────────────────────────────────────────────────────────────
 #   REGISTER / UNREGISTER
 # ─────────────────────────────────────────────────────────────────────────────
 classes = (
+    VJLOOPER_Preferences,
     SignalItem,
     SignalPreset,
     VJLOOPER_OT_hot_reload,
@@ -509,6 +630,7 @@ classes = (
 )
 
 def register():
+    """Register all classes and properties for the add-on."""
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.Object.signal_items = CollectionProperty(type=SignalItem)
@@ -543,7 +665,13 @@ def register():
     sc.bake_end             = IntProperty(default=250)
     sc.bake_channel         = EnumProperty(items=CHANNEL_BAKE, default='LOC')
 
+    register_keymaps()
+    load_presets_from_disk()
+
 def unregister():
+    """Unregister classes and clean up properties."""
+    save_presets_to_disk()
+    unregister_keymaps()
     bpy.app.handlers.frame_change_pre.remove(frame_handler)
     if preset_brush_handler in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(preset_brush_handler)
