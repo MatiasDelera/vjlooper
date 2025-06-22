@@ -56,13 +56,14 @@ translation_dict = {
 }
 
 if not os.environ.get("VJ_TESTING"):
-    from . import signals, operators, ui
+    from . import signals, operators, ui, tunnelfx
 
 
 def register():
     bpy.app.translations.register(__package__, translation_dict)
     signals.register()
     operators.register()
+    tunnelfx.register()
     ui.register()
 
 
@@ -70,6 +71,7 @@ def unregister():
     ui.unregister()
     operators.unregister()
     signals.unregister()
+    tunnelfx.unregister()
     bpy.app.translations.unregister(__package__)
 
 

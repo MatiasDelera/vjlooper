@@ -16,6 +16,7 @@ from bpy.types import PropertyGroup, UIList, AddonPreferences, Panel
 
 from . import signals
 from . import operators
+from . import tunnelfx
 
 
 class SignalItem(PropertyGroup):
@@ -33,7 +34,12 @@ class SignalItem(PropertyGroup):
     frequency_min: FloatProperty(default=0.5, min=0.001, description="Minimum random frequency")
     frequency_max: FloatProperty(default=2.0, min=0.001, description="Maximum random frequency")
     phase_offset: FloatProperty(default=0.0, description="Phase offset in degrees")
-    duration: IntProperty(default=24, min=1, description="Frames per cycle")
+    duration: IntProperty(
+        default=24,
+        min=1,
+        description="Frames per cycle",
+        update=signals.update_duration,
+    )
     offset: IntProperty(default=0, description="Start frame offset", update=signals.update_offset)
     loop_count: IntProperty(default=0, description="Number of loops (0=inf)")
     blend_frames: IntProperty(default=0, description="Blend frames at loop end")
@@ -200,7 +206,11 @@ class VJLOOPER_PT_panel(Panel):
         row = box.row()
         col1, col2 = row.column(), row.column()
         col1.prop(sc, "signal_new_amplitude", text="Amplitude")
-        col1.prop(sc, "signal_new_frequency", text="Frequency")
+        rowf = col1.row(align=True)
+        rowf.prop(sc, "signal_new_frequency", text="Frequency")
+        perfect = abs(round(sc.signal_new_frequency * sc.signal_new_duration) - sc.signal_new_frequency * sc.signal_new_duration) < 1e-4
+        rowf.alert = not perfect
+        rowf.label(icon='CHECKMARK' if perfect else 'ERROR')
         col2.prop(sc, "signal_new_phase", text="Phase")
         col2.prop(sc, "signal_new_duration", text="Duration")
         box.prop(sc, "signal_new_offset", text="Frame Offset")
@@ -310,6 +320,7 @@ class VJLOOPER_PT_panel(Panel):
         rowc = box.row()
         rowc.prop(sc, "vj_target_collection", text="", icon='OUTLINER_COLLECTION')
         box.prop(sc, "vj_only_used", text="Show only used")
+        tunnelfx.draw_ui(box, ctx)
 
     def draw_misc_ui(self, L, ctx):
         L.separator()
@@ -379,9 +390,17 @@ def register():
         ('SINE','Sine',''),('COSINE','Cosine',''),('SQUARE','Square',''),('TRIANGLE','Triangle',''),('SAWTOOTH','Sawtooth',''),('NOISE','Noise','')
     ], default='SINE')
     sc.signal_new_amplitude = FloatProperty(default=1.0, description="Default amplitude")
-    sc.signal_new_frequency = FloatProperty(default=1.0, description="Default frequency")
+    sc.signal_new_frequency = FloatProperty(
+        default=1.0,
+        description="Default frequency",
+        update=signals.update_new_frequency,
+    )
     sc.signal_new_phase = FloatProperty(default=0.0, description="Default phase")
-    sc.signal_new_duration = IntProperty(default=24, description="Default duration")
+    sc.signal_new_duration = IntProperty(
+        default=24,
+        description="Default duration",
+        update=signals.update_new_duration,
+    )
     sc.signal_new_offset = IntProperty(default=0, description="Frame offset when creating")
     sc.signal_new_loops = IntProperty(default=0, description="Loop count")
     sc.signal_new_clamp = BoolProperty(default=False, description="Use clamp")
