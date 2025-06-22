@@ -278,7 +278,7 @@ class VJLOOPER_PT_panel(Panel):
         rown.prop(sc, "category_rename_from", text="Old")
         rown.prop(sc, "category_rename_to", text="New")
         rown.operator("vjlooper.rename_category", text="Rename")
-        if sc.signal_presets:
+        if getattr(sc, "signal_presets", None) and len(sc.signal_presets) > 0:
             col.template_list("VJLOOPER_UL_presets", "", sc, "signal_presets", sc, "signal_preset_index")
             col.prop(sc.signal_presets[sc.signal_preset_index], "category", text="Category")
             row = col.row(align=True)
@@ -376,9 +376,8 @@ classes = (
 )
 
 
-def register():
-    for c in classes:
-        bpy.utils.register_class(c)
+def register_props():
+    """Register custom properties for Object and Scene types."""
     bpy.types.Object.signal_items = CollectionProperty(type=SignalItem)
     bpy.types.Object.global_amp_scale = FloatProperty(default=1.0, description="Amplitude multiplier")
     bpy.types.Object.global_freq_scale = FloatProperty(default=1.0, description="Frequency multiplier")
@@ -387,7 +386,8 @@ def register():
     sc = bpy.types.Scene
     sc.signal_new_channel = EnumProperty(items=signals.CHANNEL_ITEMS, default='LOC_X')
     sc.signal_new_type = EnumProperty(items=[
-        ('SINE','Sine',''),('COSINE','Cosine',''),('SQUARE','Square',''),('TRIANGLE','Triangle',''),('SAWTOOTH','Sawtooth',''),('NOISE','Noise','')
+        ('SINE', 'Sine', ''), ('COSINE', 'Cosine', ''), ('SQUARE', 'Square', ''),
+        ('TRIANGLE', 'Triangle', ''), ('SAWTOOTH', 'Sawtooth', ''), ('NOISE', 'Noise', '')
     ], default='SINE')
     sc.signal_new_amplitude = FloatProperty(default=1.0, description="Default amplitude")
     sc.signal_new_frequency = FloatProperty(
@@ -443,17 +443,14 @@ def register():
     sc.vj_only_used = BoolProperty(name="Only used", default=False)
     sc.vj_filtered_materials = CollectionProperty(type=VJMaterialItem)
 
-    register_keymaps()
-    signals.load_presets_from_disk()
+    if not bpy.context.scene.signal_presets:
+        p = bpy.context.scene.signal_presets.add()
+        p.name = "Empty"
+        p.data = "[]"
 
 
-def unregister():
-    signals.save_presets_to_disk()
-    unregister_keymaps()
-
-    for c in reversed(classes):
-        bpy.utils.unregister_class(c)
-
+def unregister_props():
+    """Remove custom properties from Blender data-blocks."""
     del bpy.types.Object.signal_items
     del bpy.types.Object.global_amp_scale
     del bpy.types.Object.global_freq_scale
@@ -474,3 +471,18 @@ def unregister():
         "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials",
     ]:
         delattr(bpy.types.Scene, prop)
+
+
+def register():
+    for c in classes:
+        bpy.utils.register_class(c)
+    register_keymaps()
+    signals.load_presets_from_disk()
+
+
+def unregister():
+    signals.save_presets_to_disk()
+    unregister_keymaps()
+
+    for c in reversed(classes):
+        bpy.utils.unregister_class(c)

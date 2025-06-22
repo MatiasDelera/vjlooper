@@ -277,6 +277,8 @@ class VJLOOPER_OT_remove_preset(Operator):
     def execute(self, ctx):
         sc = ctx.scene
         sc.signal_presets.remove(sc.signal_preset_index)
+        idx = sc.signal_preset_index
+        sc.signal_preset_index = min(idx, len(sc.signal_presets) - 1)
         return {'FINISHED'}
 
 
