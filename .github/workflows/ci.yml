@@ -1,0 +1,19 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: blender-ci/action@v1
+        with:
+          blender-version: '3.6-lts'
+      - name: Install dependencies
+        run: pip install pytest
+      - name: Run tests
+        run: pytest -v

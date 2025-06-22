@@ -16,6 +16,13 @@ def test_sine_wave():
     assert math.isclose(val, 0.9510565, abs_tol=1e-4)
 
 
+def test_sine_loop():
+    params = core_signals.SignalParams(signal_type='SINE', duration=24, frequency=1)
+    val0 = core_signals.calc_signal(params, 0)
+    val24 = core_signals.calc_signal(params, 24)
+    assert math.isclose(val0, val24, abs_tol=1e-6)
+
+
 def test_triangle_wave():
     params = core_signals.SignalParams(signal_type='TRIANGLE', duration=4)
     val0 = core_signals.calc_signal(params, 0)
@@ -30,3 +37,11 @@ def test_loop_lock_quantization():
     val_locked = core_signals.calc_signal(params, 4, loop_lock=True)
     # frequencies differ when loop lock active
     assert not math.isclose(val_unlocked, val_locked)
+
+
+def test_loop_lock():
+    params = core_signals.SignalParams(signal_type='SINE', duration=24, frequency=1.3)
+    locked = core_signals.calc_signal(params, 5, loop_lock=True)
+    qfreq = round(params.frequency * params.duration) / params.duration
+    expected = core_signals.calc_signal(core_signals.SignalParams(signal_type='SINE', duration=24, frequency=qfreq), 5)
+    assert math.isclose(locked, expected, abs_tol=1e-6)

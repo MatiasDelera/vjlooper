@@ -8,6 +8,5 @@ from typing import Optional
 class MaterialPreset:
     name: str
     base_color: tuple
-    emission: float
+    emission_strength: float
     roughness: float
-    texture_path: Optional[str] = None

@@ -60,6 +60,35 @@ def update_frequency(self, ctx):
             self["frequency"] = q
 
 
+def update_duration(self, ctx):
+    """Quantize frequency when duration changes and loop lock active."""
+    sc = ctx.scene
+    if getattr(sc, "loop_lock", False) and self.duration:
+        q = round(self.frequency * self.duration) / self.duration
+        if abs(q - self.frequency) > 1e-6:
+            self["frequency"] = q
+
+
+def update_new_frequency(self, ctx):
+    sc = self
+    dur = sc.signal_new_duration
+    freq = sc.signal_new_frequency
+    if getattr(sc, "loop_lock", False) and dur:
+        q = round(freq * dur) / dur
+        if abs(q - freq) > 1e-6:
+            sc["signal_new_frequency"] = q
+
+
+def update_new_duration(self, ctx):
+    sc = self
+    dur = sc.signal_new_duration
+    freq = sc.signal_new_frequency
+    if getattr(sc, "loop_lock", False) and dur:
+        q = round(freq * dur) / dur
+        if abs(q - freq) > 1e-6:
+            sc["signal_new_frequency"] = q
+
+
 def update_offset(self, ctx):
     """Keep offset within duration when loop lock is active."""
     sc = ctx.scene
