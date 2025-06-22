@@ -343,8 +343,8 @@ addon_keymaps = []
 
 
 def register_keymaps():
-    prefs = bpy.context.preferences.addons[__package__].preferences
-    if not prefs.use_keymaps:
+    prefs = signals._prefs()
+    if not prefs or not prefs.use_keymaps:
         return
     wm = bpy.context.window_manager
     kc = wm.keyconfigs.addon

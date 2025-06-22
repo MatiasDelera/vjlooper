@@ -2,6 +2,7 @@
 
 import bpy
 import json
+import os
 from pathlib import Path
 from mathutils import Vector
 from bpy_extras.view3d_utils import location_3d_to_region_2d
@@ -9,6 +10,11 @@ import blf
 
 from .core import signals as core_signals
 from .core import persistence as core_persistence
+
+
+def _prefs():
+    addon = bpy.context.preferences.addons.get(__package__)
+    return getattr(addon, "preferences", None)
 
 class SignalCache:
     """Simple per-frame cache for computed signal values."""
@@ -186,8 +192,8 @@ def frame_handler(scene):
 
 def draw_preview_callback():
     """Draw signal info overlay in the 3D view."""
-    prefs = bpy.context.preferences.addons[__package__].preferences
-    if not prefs.use_preview:
+    prefs = _prefs()
+    if not prefs or not prefs.use_preview:
         return
     region = bpy.context.region
     rv3d   = bpy.context.region_data
@@ -259,8 +265,11 @@ def validate_preset(data):
 
 
 def get_preset_file():
-    prefs = bpy.context.preferences.addons[__package__].preferences
-    return bpy.path.abspath(prefs.autosave_path)
+    prefs = _prefs()
+    if prefs:
+        return bpy.path.abspath(prefs.autosave_path)
+    # fallback to default path from AddonPreferences
+    return os.path.join(os.path.dirname(__file__), "presets.json")
 
 
 def save_presets_to_disk():
@@ -296,9 +305,9 @@ def load_presets_from_disk():
 
 def register():
     bpy.app.handlers.frame_change_pre.append(frame_handler)
-    prefs = bpy.context.preferences.addons[__package__].preferences
+    prefs = _prefs()
     global preview_handle
-    if prefs.use_preview and preview_handle is None:
+    if prefs and prefs.use_preview and preview_handle is None:
         preview_handle = bpy.types.SpaceView3D.draw_handler_add(
             draw_preview_callback, (), 'WINDOW', 'POST_PIXEL')
     if update_signal_markers not in bpy.app.handlers.depsgraph_update_post:
