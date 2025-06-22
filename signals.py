@@ -50,6 +50,22 @@ brush_counter  = 0
 preview_handle  = None
 
 
+def update_frequency(self, ctx):
+    """Quantize frequency when loop lock is active."""
+    sc = ctx.scene
+    if getattr(sc, "loop_lock", False) and self.duration:
+        q = round(self.frequency * self.duration) / self.duration
+        if abs(q - self.frequency) > 1e-6:
+            self["frequency"] = q
+
+
+def update_offset(self, ctx):
+    """Keep offset within duration when loop lock is active."""
+    sc = ctx.scene
+    if getattr(sc, "loop_lock", False) and self.duration:
+        self["offset"] = int(self.offset) % self.duration
+
+
 def apply_preset_to_object(obj, preset_data, base_frame=0, mirror=False, offset=0):
     """Load a serialized preset onto obj at base_frame."""
     obj.signal_items.clear()
@@ -74,6 +90,9 @@ def calc_signal(it, obj, frame):
     duration = max(1, int(it.duration * dur_scale))
     amplitude = it.amplitude * amp_scale
     frequency = it.frequency * freq_scale
+    sc = bpy.context.scene
+    if getattr(sc, "loop_lock", False):
+        frequency = round(frequency * duration) / duration
     if it.loop_count and rel >= duration * it.loop_count:
         return it.base_value
     cycle = rel % duration
@@ -86,12 +105,30 @@ def calc_signal(it, obj, frame):
         wave = 4 * p - 1 if p < 0.5 else 3 - 4 * p
     elif it.signal_type == 'SAWTOOTH':  wave = 2 * (t % 1.0) - 1
     elif it.signal_type == 'NOISE':
-        random.seed(it.noise_seed + frame)
+        seed_frame = cycle if getattr(sc, "loop_lock", False) else frame
+        random.seed(it.noise_seed + seed_frame)
         wave = random.uniform(-1, 1)
     else:                               wave = 0.0
     last = smoothing_cache.get(id(it), wave)
     val  = last * it.smoothing + wave * (1 - it.smoothing) if it.smoothing else wave
     smoothing_cache[id(it)] = val
+    if getattr(sc, "loop_lock", False) and getattr(it, "blend_frames", 0) > 0:
+        bf = it.blend_frames
+        if cycle >= duration - bf:
+            factor = (cycle - (duration - bf)) / bf
+            t0 = it.phase_offset / 360.0
+            if it.signal_type == 'SINE':      start_w = math.sin(2 * math.pi * t0)
+            elif it.signal_type == 'COSINE':  start_w = math.cos(2 * math.pi * t0)
+            elif it.signal_type == 'SQUARE':  start_w = 1.0 if math.sin(2 * math.pi * t0) >= 0 else -1.0
+            elif it.signal_type == 'TRIANGLE':
+                p0 = t0 % 1.0
+                start_w = 4 * p0 - 1 if p0 < 0.5 else 3 - 4 * p0
+            elif it.signal_type == 'SAWTOOTH': start_w = 2 * (t0 % 1.0) - 1
+            elif it.signal_type == 'NOISE':
+                random.seed(it.noise_seed)
+                start_w = random.uniform(-1, 1)
+            else: start_w = wave
+            val = val * (1 - factor) + start_w * factor
     out = it.base_value + amplitude * val
     if it.use_clamp:
         out = max(it.clamp_min, min(it.clamp_max, out))
