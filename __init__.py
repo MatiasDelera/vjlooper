@@ -60,7 +60,11 @@ if not os.environ.get("VJ_TESTING"):
 
 
 def register():
-    bpy.app.translations.register(__package__, translation_dict)
+    try:
+        bpy.app.translations.register(__package__, translation_dict)
+    except ValueError:
+        bpy.app.translations.unregister(__package__)
+        bpy.app.translations.register(__package__, translation_dict)
     signals.register()
     operators.register()
     tunnelfx.register()
