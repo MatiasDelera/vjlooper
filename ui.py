@@ -365,12 +365,15 @@ def unregister_keymaps():
     addon_keymaps.clear()
 
 
-classes = (
-    VJLOOPER_Preferences,
+property_classes = (
     SignalItem,
     SignalPreset,
-    VJLOOPER_UL_presets,
     VJMaterialItem,
+)
+
+classes = (
+    VJLOOPER_Preferences,
+    VJLOOPER_UL_presets,
     VJLOOPER_UL_materials,
     VJLOOPER_PT_panel,
 )
@@ -378,6 +381,8 @@ classes = (
 
 def register_props():
     """Register custom properties for Object and Scene types."""
+    for c in property_classes:
+        bpy.utils.register_class(c)
     bpy.types.Object.signal_items = CollectionProperty(type=SignalItem)
     bpy.types.Object.global_amp_scale = FloatProperty(default=1.0, description="Amplitude multiplier")
     bpy.types.Object.global_freq_scale = FloatProperty(default=1.0, description="Frequency multiplier")
@@ -466,6 +471,8 @@ def unregister_props():
         "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials",
     ]:
         delattr(bpy.types.Scene, prop)
+    for c in reversed(property_classes):
+        bpy.utils.unregister_class(c)
 
 
 def register():
