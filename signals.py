@@ -2,12 +2,13 @@
 
 import bpy
 import json
-import math
-import os
-import random
+from pathlib import Path
 from mathutils import Vector
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 import blf
+
+from .core import signals as core_signals
+from .core import persistence as core_persistence
 
 class SignalCache:
     """Simple per-frame cache for computed signal values."""
@@ -79,60 +80,26 @@ def apply_preset_to_object(obj, preset_data, base_frame=0, mirror=False, offset=
 
 
 def calc_signal(it, obj, frame):
-    """Calculate value for it at frame on obj."""
-    sf = it.start_frame + it.offset
-    if frame < sf:
-        return it.base_value
-    rel = frame - sf
-    dur_scale = getattr(obj, "global_dur_scale", 1.0)
-    amp_scale = getattr(obj, "global_amp_scale", 1.0)
-    freq_scale = getattr(obj, "global_freq_scale", 1.0)
-    duration = max(1, int(it.duration * dur_scale))
-    amplitude = it.amplitude * amp_scale
-    frequency = it.frequency * freq_scale
-    sc = bpy.context.scene
-    if getattr(sc, "loop_lock", False):
-        frequency = round(frequency * duration) / duration
-    if it.loop_count and rel >= duration * it.loop_count:
-        return it.base_value
-    cycle = rel % duration
-    t = (cycle / duration) * frequency + it.phase_offset / 360.0
-    if   it.signal_type == 'SINE':      wave = math.sin(2 * math.pi * t)
-    elif it.signal_type == 'COSINE':    wave = math.cos(2 * math.pi * t)
-    elif it.signal_type == 'SQUARE':    wave = 1.0 if math.sin(2 * math.pi * t) >= 0 else -1.0
-    elif it.signal_type == 'TRIANGLE':
-        p = t % 1.0
-        wave = 4 * p - 1 if p < 0.5 else 3 - 4 * p
-    elif it.signal_type == 'SAWTOOTH':  wave = 2 * (t % 1.0) - 1
-    elif it.signal_type == 'NOISE':
-        seed_frame = cycle if getattr(sc, "loop_lock", False) else frame
-        random.seed(it.noise_seed + seed_frame)
-        wave = random.uniform(-1, 1)
-    else:                               wave = 0.0
-    last = smoothing_cache.get(id(it), wave)
-    val  = last * it.smoothing + wave * (1 - it.smoothing) if it.smoothing else wave
-    smoothing_cache[id(it)] = val
-    if getattr(sc, "loop_lock", False) and getattr(it, "blend_frames", 0) > 0:
-        bf = it.blend_frames
-        if cycle >= duration - bf:
-            factor = (cycle - (duration - bf)) / bf
-            t0 = it.phase_offset / 360.0
-            if it.signal_type == 'SINE':      start_w = math.sin(2 * math.pi * t0)
-            elif it.signal_type == 'COSINE':  start_w = math.cos(2 * math.pi * t0)
-            elif it.signal_type == 'SQUARE':  start_w = 1.0 if math.sin(2 * math.pi * t0) >= 0 else -1.0
-            elif it.signal_type == 'TRIANGLE':
-                p0 = t0 % 1.0
-                start_w = 4 * p0 - 1 if p0 < 0.5 else 3 - 4 * p0
-            elif it.signal_type == 'SAWTOOTH': start_w = 2 * (t0 % 1.0) - 1
-            elif it.signal_type == 'NOISE':
-                random.seed(it.noise_seed)
-                start_w = random.uniform(-1, 1)
-            else: start_w = wave
-            val = val * (1 - factor) + start_w * factor
-    out = it.base_value + amplitude * val
-    if it.use_clamp:
-        out = max(it.clamp_min, min(it.clamp_max, out))
-    return out
+    """Calculate value for it at frame on obj using pure core implementation."""
+    params = core_signals.SignalParams(
+        signal_type=it.signal_type,
+        amplitude=it.amplitude * getattr(obj, "global_amp_scale", 1.0),
+        frequency=it.frequency * getattr(obj, "global_freq_scale", 1.0),
+        duration=max(1, int(it.duration * getattr(obj, "global_dur_scale", 1.0))),
+        offset=it.offset,
+        start_frame=it.start_frame,
+        phase_offset=it.phase_offset,
+        noise_seed=it.noise_seed,
+        smoothing=it.smoothing,
+        base_value=it.base_value,
+        loop_count=it.loop_count,
+        use_clamp=it.use_clamp,
+        clamp_min=it.clamp_min,
+        clamp_max=it.clamp_max,
+        blend_frames=getattr(it, "blend_frames", 0),
+    )
+    loop_lock = getattr(bpy.context.scene, "loop_lock", False)
+    return core_signals.calc_signal(params, frame, loop_lock=loop_lock)
 
 
 def set_channel(obj, ch, v):
@@ -279,19 +246,18 @@ def save_presets_to_disk():
         }
         for p in sc.signal_presets
     ]
-    path = get_preset_file()
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+    path = Path(get_preset_file())
+    core_persistence.save_presets(data, path)
 
 
 def load_presets_from_disk():
     """Load presets from the autosave file if it exists."""
     sc = bpy.context.scene
-    path = get_preset_file()
-    if os.path.exists(path):
-        arr = json.load(open(path))
+    path = Path(get_preset_file())
+    presets = core_persistence.load_presets(path)
+    if presets:
         sc.signal_presets.clear()
-        for e in arr:
+        for e in presets:
             p = sc.signal_presets.add()
             p.name = e["name"]
             p.data = json.dumps(e["data"])

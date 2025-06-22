@@ -13,7 +13,17 @@ bl_info = {
     "category": "Animation",
 }
 
-import bpy
+import os
+if os.environ.get("VJ_TESTING"):
+    import types
+    bpy = types.SimpleNamespace(app=types.SimpleNamespace(version=(3, 6, 0)))
+else:
+    import bpy
+
+if bpy.app.version < (3, 6, 0):
+    bl_info["warning"] = "Limited support for Blender versions before 3.6"
+else:
+    bl_info["warning"] = ""
 
 translation_dict = {
     "es_ES": {
@@ -45,7 +55,8 @@ translation_dict = {
     }
 }
 
-from . import signals, operators, ui
+if not os.environ.get("VJ_TESTING"):
+    from . import signals, operators, ui
 
 
 def register():

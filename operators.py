@@ -513,11 +513,13 @@ class VJLOOPER_OT_random_hue_shift(Operator):
     bl_idname = "vjlooper.random_hue_shift"
     bl_label = "Random Hue Shift"
 
-    range: FloatProperty(default=0.1, min=0.0, max=1.0)
+    range: FloatProperty(default=0.0, min=0.0, max=1.0)
 
     def execute(self, ctx):
         import colorsys
         sc = ctx.scene
+        prefs = ctx.preferences.addons[__package__].preferences
+        rng = self.range if self.range > 0 else prefs.hue_shift_range
         mats = signals.get_materials_list(sc)
         idx = sc.vj_material_index
         if idx >= len(mats):
@@ -525,7 +527,7 @@ class VJLOOPER_OT_random_hue_shift(Operator):
         mat = mats[idx]
         col = mat.diffuse_color
         h, s, v = colorsys.rgb_to_hsv(col[0], col[1], col[2])
-        h = (h + random.uniform(-self.range, self.range)) % 1.0
+        h = (h + random.uniform(-rng, rng)) % 1.0
         r, g, b = colorsys.hsv_to_rgb(h, s, v)
         mat.diffuse_color = (r, g, b, col[3])
         return {'FINISHED'}
