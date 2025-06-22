@@ -8,14 +8,20 @@ bl_info = {
     "category": "Animation",
 }
 
-import bpy
-from . import panel
+from . import signals, operators, ui
+
 
 def register():
-    panel.register()
+    signals.register()
+    operators.register()
+    ui.register()
+
 
 def unregister():
-    panel.unregister()
+    ui.unregister()
+    operators.unregister()
+    signals.unregister()
+
 
 if __name__ == "__main__":
     register()
