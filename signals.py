@@ -1,3 +1,5 @@
+"""Core signal evaluation helpers for VjLooper."""
+
 import bpy
 import json
 import math
@@ -31,16 +33,16 @@ CHANNEL_BAKE = [
 ]
 
 CHANNEL_ITEMS = [
-    ('LOC_X', "Posicion X", ""),
-    ('LOC_Y', "Posicion Y", ""),
-    ('LOC_Z', "Posicion Z", ""),
-    ('ROT_X', "Rotacion X", ""),
-    ('ROT_Y', "Rotacion Y", ""),
-    ('ROT_Z', "Rotacion Z", ""),
-    ('SCL_X', "Escala X",   ""),
-    ('SCL_Y', "Escala Y",   ""),
-    ('SCL_Z', "Escala Z",   ""),
-    ('SCL_ALL', "Escala Uniforme", ""),
+    ('LOC_X', "Position X", ""),
+    ('LOC_Y', "Position Y", ""),
+    ('LOC_Z', "Position Z", ""),
+    ('ROT_X', "Rotation X", ""),
+    ('ROT_Y', "Rotation Y", ""),
+    ('ROT_Z', "Rotation Z", ""),
+    ('SCL_X', "Scale X",   ""),
+    ('SCL_Y', "Scale Y",   ""),
+    ('SCL_Z', "Scale Z",   ""),
+    ('SCL_ALL', "Uniform Scale", ""),
 ]
 
 brush_last_obj = None

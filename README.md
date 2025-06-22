@@ -1,18 +1,16 @@
 # VjLooper
 
-VjLooper es un addon para Blender que permite generar animaciones procedurales mediante señales configurables y presets.
+VjLooper is a Blender add-on that generates procedural animations using configurable signals and presets.
 
-## Instalación
-1. Copiar la carpeta del addon en el directorio de addons de Blender (`scripts/addons`).
-2. Activar "VjLooper" desde las preferencias de Blender.
+## Installation
+1. Copy the add-on folder into Blender's add-ons directory (`scripts/addons`).
+2. Enable "VjLooper" from Blender's preferences.
 
-## Uso básico
-- Seleccionar un objeto y crear señales desde el panel "VjLooper" en la barra lateral.
-- Configurar tipo de señal, amplitud, frecuencia y otros parámetros.
-- Opcionalmente guardar y cargar presets de señales.
+## Basic Usage
+- Select an object and create signals from the "VjLooper" panel in the sidebar.
+- Configure signal type, amplitude, frequency and other parameters.
+- Optionally save and load signal presets.
 
-## Aleatorizar señales
-Cada animación tiene campos para "Amp Min", "Amp Max", "Freq Min" y "Freq Max".
-Establece estos rangos y pulsa **Randomize** para asignar valores aleatorios de
-amplitud y frecuencia dentro de ellos.
-
+## Randomize Signals
+Each animation has fields "Amp Min", "Amp Max", "Freq Min" and "Freq Max".
+Set these ranges and press **Randomize** to assign random amplitude and frequency values within them.

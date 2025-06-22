@@ -1,3 +1,5 @@
+"""Aggregates registration of VjLooper modules."""
+
 from . import signals, operators, ui
 from .signals import *
 from .operators import *

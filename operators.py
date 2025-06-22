@@ -1,7 +1,10 @@
+"""Blender operator implementations for the VjLooper add-on."""
+
 import bpy
 import importlib
 import json
 import random
+import sys
 from mathutils import Vector
 from bpy.props import (
     BoolProperty,
@@ -18,10 +21,10 @@ from . import signals
 
 
 class VJLOOPER_OT_hot_reload(Operator):
-    """Reload the add-on modules."""
+    """Reload all VjLooper modules."""
     bl_idname = "vjlooper.hot_reload"
     bl_label = "Reload Addon"
-    bl_description = "Recarga VjLooper sin reiniciar Blender"
+    bl_description = "Reload VjLooper without restarting Blender"
 
     def execute(self, context):
         addon = sys.modules.get(__package__)
@@ -34,7 +37,7 @@ class VJLOOPER_OT_hot_reload(Operator):
             importlib.reload(addon)
             if hasattr(addon, 'register'):
                 addon.register()
-        self.report({'INFO'}, "VjLooper recargado")
+        self.report({'INFO'}, "VjLooper reloaded")
         return {'FINISHED'}
 
 
@@ -149,7 +152,7 @@ class VJLOOPER_OT_load_preset(Operator):
         idx = sc.signal_preset_index
         pr = sc.signal_presets[idx]
         if not signals.validate_preset(pr.data):
-            self.report({'ERROR'}, "Preset invalido")
+            self.report({'ERROR'}, "Invalid preset")
             return {'CANCELLED'}
         arr = json.loads(pr.data)
         signals.apply_preset_to_object(ctx.object, arr, sc.frame_current, sc.preset_mirror)
@@ -178,7 +181,7 @@ class VJLOOPER_OT_apply_preset_multi(Operator):
             return {'CANCELLED'}
         pr = sc.signal_presets[idx]
         if not signals.validate_preset(pr.data):
-            self.report({'ERROR'}, "Preset invalido")
+            self.report({'ERROR'}, "Invalid preset")
             return {'CANCELLED'}
         arr = json.loads(pr.data)
         offset = sc.multi_offset_frames
