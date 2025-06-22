@@ -43,6 +43,7 @@ class SignalItem(PropertyGroup):
     smoothing: FloatProperty(default=0.0, min=0.0, max=1.0, description="Smoothing factor")
     base_value: FloatProperty(default=0.0)
     start_frame: IntProperty(default=0)
+    marker_name: StringProperty(default="")
 
 
 class SignalPreset(PropertyGroup):
@@ -263,9 +264,15 @@ class VJLOOPER_PT_panel(Panel):
             col.template_list("VJLOOPER_UL_presets", "", sc, "signal_presets", sc, "signal_preset_index")
             col.prop(sc.signal_presets[sc.signal_preset_index], "category", text="Category")
             row = col.row(align=True)
-            row.prop(sc, "multi_offset_frames", text="Offset")
+            row.prop(sc, "multi_offset_frames", text="Step")
             row.operator("vjlooper.apply_preset_multi", text="Apply to Selection")
+            row2 = col.row(align=True)
+            row2.prop(sc, "offset_mode", text="Mode")
+            row2.operator("vjlooper.apply_preset_offset", text="Apply with Offset")
+            col.prop(sc, "offset_radial_factor")
+            col.prop(sc, "offset_bpm")
             col.prop(sc, "preset_mirror", text="Mirror")
+            col.prop(sc, "brush_offset_step", text="Brush Step")
             col.operator("vjlooper.toggle_preset_brush", text="Toggle Preset Brush", depress=sc.preset_brush_active)
 
     def draw_bake_ui(self, L):
@@ -386,8 +393,16 @@ def register():
     sc.ui_show_misc = BoolProperty(default=True)
 
     sc.multi_offset_frames = IntProperty(default=0, description="Frame offset between objects")
+    sc.offset_mode = EnumProperty(items=[
+        ('LINEAR', 'Linear', ''),
+        ('RADIAL', 'Radial', ''),
+        ('BPM', 'Beat', '')
+    ], default='LINEAR')
+    sc.offset_radial_factor = FloatProperty(default=1.0, description="Frames per unit for radial offset")
+    sc.offset_bpm = IntProperty(default=120, description="BPM for beat grid")
     sc.preset_mirror = BoolProperty(default=False, description="Mirror amplitude when loading")
     sc.preset_brush_active = BoolProperty(default=False, description="Enable preset brush mode")
+    sc.brush_offset_step = IntProperty(default=0, description="Frame step when using preset brush")
 
     sc.bake_start = IntProperty(default=1)
     sc.bake_end = IntProperty(default=250)
@@ -422,7 +437,8 @@ def unregister():
         "signal_new_smoothing", "signal_presets", "signal_preset_index",
         "preset_category_filter", "category_rename_from", "category_rename_to",
         "ui_show_create", "ui_show_items", "ui_show_presets", "ui_show_bake", "ui_show_materials", "ui_show_misc",
-        "multi_offset_frames", "preset_mirror", "preset_brush_active",
+        "multi_offset_frames", "offset_mode", "offset_radial_factor", "offset_bpm",
+        "preset_mirror", "preset_brush_active", "brush_offset_step",
         "bake_start", "bake_end", "bake_channel",
         "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials",
     ]:

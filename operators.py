@@ -73,6 +73,8 @@ class VJLOOPER_OT_add_signal(Operator):
         it.smoothing = sc.signal_new_smoothing
         it.base_value = signals.get_channel_value(o, it.channel)
         it.start_frame = sc.frame_current
+        marker = ctx.scene.timeline_markers.new(it.name, frame=it.start_frame)
+        it.marker_name = marker.name
         return {'FINISHED'}
 
 
@@ -88,6 +90,11 @@ class VJLOOPER_OT_remove_signal(Operator):
         o = ctx.object
         if not o or self.index >= len(o.signal_items):
             return {'CANCELLED'}
+        it = o.signal_items[self.index]
+        if it.marker_name:
+            mk = ctx.scene.timeline_markers.get(it.marker_name)
+            if mk:
+                ctx.scene.timeline_markers.remove(mk)
         o.signal_items.remove(self.index)
         return {'FINISHED'}
 
@@ -194,6 +201,71 @@ class VJLOOPER_OT_apply_preset_multi(Operator):
                 sc.preset_mirror,
                 i * offset
             )
+        return {'FINISHED'}
+
+
+class VJLOOPER_OT_apply_preset_offset(Operator):
+    """Apply active preset with advanced offset modes."""
+    bl_idname = "vjlooper.apply_preset_offset"
+    bl_label = "Apply Preset With Offset"
+
+    mode: EnumProperty(
+        items=[
+            ('LINEAR', 'Linear', ''),
+            ('RADIAL', 'Radial', ''),
+            ('BPM', 'Beat', ''),
+        ],
+        default='LINEAR'
+    )
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        idx = sc.signal_preset_index
+        if idx >= len(sc.signal_presets):
+            return {'CANCELLED'}
+        pr = sc.signal_presets[idx]
+        if not signals.validate_preset(pr.data):
+            self.report({'ERROR'}, "Invalid preset")
+            return {'CANCELLED'}
+        arr = json.loads(pr.data)
+        active = ctx.object
+        selected = [o for o in ctx.selected_objects if o != active]
+        if self.mode == 'LINEAR':
+            step = sc.multi_offset_frames
+            for i, obj in enumerate(selected):
+                signals.apply_preset_to_object(
+                    obj,
+                    arr,
+                    sc.frame_current,
+                    sc.preset_mirror,
+                    i * step,
+                )
+        elif self.mode == 'RADIAL':
+            factor = sc.offset_radial_factor
+            for obj in selected:
+                dist = (obj.location - active.location).length
+                off = int(dist * factor)
+                signals.apply_preset_to_object(
+                    obj,
+                    arr,
+                    sc.frame_current,
+                    sc.preset_mirror,
+                    off,
+                )
+        else:  # BPM
+            bpm = sc.offset_bpm
+            if bpm <= 0:
+                bpm = 120
+            frames_per_beat = ctx.scene.render.fps * 60 / bpm
+            for i, obj in enumerate(selected):
+                off = int(i * frames_per_beat)
+                signals.apply_preset_to_object(
+                    obj,
+                    arr,
+                    sc.frame_current,
+                    sc.preset_mirror,
+                    off,
+                )
         return {'FINISHED'}
 
 
@@ -459,6 +531,54 @@ class VJLOOPER_OT_random_hue_shift(Operator):
         return {'FINISHED'}
 
 
+class VJLOOPER_OT_random_palette(Operator):
+    """Generate color variations using harmonies."""
+    bl_idname = "vjlooper.random_palette"
+    bl_label = "Random Palette"
+
+    hue_range: FloatProperty(default=0.1, min=0.0, max=1.0)
+    sat_range: FloatProperty(default=0.1, min=0.0, max=1.0)
+    val_range: FloatProperty(default=0.1, min=0.0, max=1.0)
+    harmony: EnumProperty(
+        items=[
+            ('NONE', 'None', ''),
+            ('TRIAD', 'Triad', ''),
+            ('COMPLEMENT', 'Complement', ''),
+        ],
+        default='NONE'
+    )
+
+    def execute(self, ctx):
+        import colorsys
+        sc = ctx.scene
+        mats = signals.get_materials_list(sc)
+        idx = sc.vj_material_index
+        if idx >= len(mats):
+            return {'CANCELLED'}
+        mat = mats[idx]
+        h, s, v = colorsys.rgb_to_hsv(*mat.diffuse_color[:3])
+        targets = [mat]
+        for obj in ctx.selected_objects:
+            for slot in obj.material_slots:
+                if slot.material:
+                    targets.append(slot.material)
+        for m in set(targets):
+            if self.harmony == 'TRIAD':
+                options = [h, (h + 1/3) % 1.0, (h + 2/3) % 1.0]
+                nh = random.choice(options)
+            elif self.harmony == 'COMPLEMENT':
+                options = [h, (h + 0.5) % 1.0]
+                nh = random.choice(options)
+            else:
+                nh = h + random.uniform(-self.hue_range, self.hue_range)
+            nh = nh % 1.0
+            ns = max(0.0, min(1.0, s + random.uniform(-self.sat_range, self.sat_range)))
+            nv = max(0.0, min(1.0, v + random.uniform(-self.val_range, self.val_range)))
+            r, g, b = colorsys.hsv_to_rgb(nh, ns, nv)
+            m.diffuse_color = (r, g, b, m.diffuse_color[3])
+        return {'FINISHED'}
+
+
 classes = (
     VJLOOPER_OT_hot_reload,
     VJLOOPER_OT_add_signal,
@@ -467,6 +587,7 @@ classes = (
     VJLOOPER_OT_add_preset,
     VJLOOPER_OT_load_preset,
     VJLOOPER_OT_apply_preset_multi,
+    VJLOOPER_OT_apply_preset_offset,
     VJLOOPER_OT_remove_preset,
     VJLOOPER_OT_export_presets,
     VJLOOPER_OT_import_presets,
@@ -479,6 +600,7 @@ classes = (
     VJLOOPER_OT_apply_mat_coll,
     VJLOOPER_OT_select_with_mat,
     VJLOOPER_OT_random_hue_shift,
+    VJLOOPER_OT_random_palette,
 )
 
 
