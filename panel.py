@@ -251,6 +251,24 @@ class SignalItem(bpy.types.PropertyGroup):
     ], default='SINE')
     amplitude:    FloatProperty(default=1.0, description="Amplitude in Blender units")
     frequency:    FloatProperty(default=1.0, min=0.001, description="Cycles per animation length")
+    amplitude_min: FloatProperty(
+        default=0.5,
+        description="Minimum random amplitude"
+    )
+    amplitude_max: FloatProperty(
+        default=1.5,
+        description="Maximum random amplitude"
+    )
+    frequency_min: FloatProperty(
+        default=0.5,
+        min=0.001,
+        description="Minimum random frequency"
+    )
+    frequency_max: FloatProperty(
+        default=2.0,
+        min=0.001,
+        description="Maximum random frequency"
+    )
     phase_offset: FloatProperty(default=0.0, description="Phase offset in degrees")
     duration:     IntProperty(default=24, min=1, description="Frames per cycle")
     offset:       IntProperty(default=0, description="Start frame offset")
@@ -357,6 +375,10 @@ class VJLOOPER_OT_add_signal(bpy.types.Operator):
         it.signal_type  = sc.signal_new_type
         it.amplitude    = sc.signal_new_amplitude
         it.frequency    = sc.signal_new_frequency
+        it.amplitude_min = it.amplitude
+        it.amplitude_max = it.amplitude
+        it.frequency_min = it.frequency
+        it.frequency_max = it.frequency
         it.phase_offset = sc.signal_new_phase
         it.duration     = sc.signal_new_duration
         it.offset       = sc.signal_new_offset
@@ -383,6 +405,27 @@ class VJLOOPER_OT_remove_signal(bpy.types.Operator):
         if not o or self.index >= len(o.signal_items):
             return {'CANCELLED'}
         o.signal_items.remove(self.index)
+        return {'FINISHED'}
+
+class VJLOOPER_OT_randomize_signal(bpy.types.Operator):
+    """Assign random amplitude and frequency within set ranges."""
+    bl_idname  = "vjlooper.randomize_signal"
+    bl_label   = "Randomize Signal"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    index: IntProperty()
+
+    def execute(self, ctx):
+        obj = ctx.object
+        if not obj or self.index >= len(obj.signal_items):
+            return {'CANCELLED'}
+        it = obj.signal_items[self.index]
+        amp_min = min(it.amplitude_min, it.amplitude_max)
+        amp_max = max(it.amplitude_min, it.amplitude_max)
+        freq_min = min(it.frequency_min, it.frequency_max)
+        freq_max = max(it.frequency_min, it.frequency_max)
+        it.amplitude = random.uniform(amp_min, amp_max)
+        it.frequency = random.uniform(freq_min, freq_max)
         return {'FINISHED'}
 
 class VJLOOPER_OT_add_preset(bpy.types.Operator):
@@ -702,6 +745,16 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
                 c1.prop(it, "frequency")
                 c2.prop(it, "phase_offset")
                 c2.prop(it, "duration")
+                r = sub.row()
+                c3, c4 = r.column(), r.column()
+                c3.prop(it, "amplitude_min", text="Amp Min")
+                c3.prop(it, "frequency_min", text="Freq Min")
+                c4.prop(it, "amplitude_max", text="Amp Max")
+                c4.prop(it, "frequency_max", text="Freq Max")
+                sub.operator(
+                    "vjlooper.randomize_signal",
+                    text="Randomize"
+                ).index = i
                 sub.prop(it, "offset")
                 sub.prop(it, "loop_count")
                 sub.prop(it, "use_clamp")
@@ -805,6 +858,7 @@ classes = (
     VJLOOPER_OT_hot_reload,
     VJLOOPER_OT_add_signal,
     VJLOOPER_OT_remove_signal,
+    VJLOOPER_OT_randomize_signal,
     VJLOOPER_OT_add_preset,
     VJLOOPER_OT_load_preset,
     VJLOOPER_OT_apply_preset_multi,
