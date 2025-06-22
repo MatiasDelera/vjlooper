@@ -610,9 +610,17 @@ classes = (
 
 def register():
     for c in classes:
-        bpy.utils.register_class(c)
+        try:
+            bpy.utils.register_class(c)
+        except ValueError:
+            # Allow re-registration if Blender left classes registered
+            bpy.utils.unregister_class(c)
+            bpy.utils.register_class(c)
 
 
 def unregister():
     for c in reversed(classes):
-        bpy.utils.unregister_class(c)
+        try:
+            bpy.utils.unregister_class(c)
+        except RuntimeError:
+            pass
