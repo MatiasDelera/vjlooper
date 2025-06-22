@@ -46,6 +46,7 @@ CHANNEL_ITEMS = [
 ]
 
 brush_last_obj = None
+brush_counter  = 0
 preview_handle  = None
 
 
@@ -174,9 +175,10 @@ def draw_preview_callback():
 
 def preset_brush_handler(scene):
     """Apply the active preset when selecting new objects."""
-    global brush_last_obj
+    global brush_last_obj, brush_counter
     if not scene.preset_brush_active:
         brush_last_obj = None
+        brush_counter = 0
         return
     obj = bpy.context.view_layer.objects.active
     if obj and obj != brush_last_obj and hasattr(obj, "signal_items"):
@@ -189,9 +191,30 @@ def preset_brush_handler(scene):
                     obj,
                     arr,
                     scene.frame_current,
-                    scene.preset_mirror
+                    scene.preset_mirror,
+                    brush_counter * scene.brush_offset_step
                 )
+                brush_counter += 1
     brush_last_obj = obj
+
+
+def update_signal_markers(scene):
+    """Synchronize signal start_frame with timeline markers."""
+    for obj in scene.objects:
+        if not hasattr(obj, "signal_items"):
+            continue
+        for it in obj.signal_items:
+            if not it.marker_name:
+                continue
+            mk = scene.timeline_markers.get(it.marker_name)
+            if mk:
+                if mk.frame != it.start_frame:
+                    it.start_frame = mk.frame
+                if mk.name != it.name:
+                    mk.name = it.name
+            else:
+                new_mk = scene.timeline_markers.new(it.name, frame=it.start_frame)
+                it.marker_name = new_mk.name
 
 
 def validate_preset(data):
@@ -246,6 +269,8 @@ def register():
     if prefs.use_preview and preview_handle is None:
         preview_handle = bpy.types.SpaceView3D.draw_handler_add(
             draw_preview_callback, (), 'WINDOW', 'POST_PIXEL')
+    if update_signal_markers not in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.append(update_signal_markers)
 
 
 def unregister():
@@ -253,6 +278,8 @@ def unregister():
         bpy.app.handlers.frame_change_pre.remove(frame_handler)
     if preset_brush_handler in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.remove(preset_brush_handler)
+    if update_signal_markers in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(update_signal_markers)
     global preview_handle
     if preview_handle is not None:
         bpy.types.SpaceView3D.draw_handler_remove(preview_handle, 'WINDOW')
