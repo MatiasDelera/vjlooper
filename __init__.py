@@ -1,7 +1,7 @@
 bl_info = {
     "name": "VjLooper",
     "author": "Tu Nombre",
-    "version": (1, 2, 0),
+    "version": (1, 3, 0),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > VjLooper",
     "description": "Animación procedural avanzada con presets, bake, preview y hot-reload",
