@@ -1,6 +1,6 @@
 bl_info = {
     "name": "VjLooper",
-    "author": "Tu Nombre",
+    "author": "Matias Delera",
     "version": (1, 3, 0),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar > VjLooper",
