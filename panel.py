@@ -29,15 +29,32 @@ signal_cache = SignalCache()
 # store smoothed values per signal id
 smoothing_cache = {}
 
+def apply_preset_to_object(obj, preset_data, base_frame=0, mirror=False, offset=0):
+    obj.signal_items.clear()
+    for d in preset_data:
+        it = obj.signal_items.add()
+        for k, v in d.items():
+            if k == "amplitude" and mirror:
+                v = -v
+            setattr(it, k, v)
+        it.start_frame = base_frame + offset
+
+
 def calc_signal(it, obj, frame):
     sf = it.start_frame + it.offset
     if frame < sf:
         return it.base_value
     rel = frame - sf
-    if it.loop_count and rel >= it.duration * it.loop_count:
+    dur_scale = getattr(obj, "global_dur_scale", 1.0)
+    amp_scale = getattr(obj, "global_amp_scale", 1.0)
+    freq_scale = getattr(obj, "global_freq_scale", 1.0)
+    duration = max(1, int(it.duration * dur_scale))
+    amplitude = it.amplitude * amp_scale
+    frequency = it.frequency * freq_scale
+    if it.loop_count and rel >= duration * it.loop_count:
         return it.base_value
-    cycle = rel % it.duration
-    t = (cycle / it.duration) * it.frequency + it.phase_offset/360.0
+    cycle = rel % duration
+    t = (cycle / duration) * frequency + it.phase_offset/360.0
     if it.signal_type=='SINE':      wave = math.sin(2*math.pi*t)
     elif it.signal_type=='COSINE':  wave = math.cos(2*math.pi*t)
     elif it.signal_type=='SQUARE':  wave = 1.0 if math.sin(2*math.pi*t)>=0 else -1.0
@@ -50,7 +67,7 @@ def calc_signal(it, obj, frame):
     last = smoothing_cache.get(id(it), wave)
     val  = last*it.smoothing + wave*(1-it.smoothing) if it.smoothing else wave
     smoothing_cache[id(it)] = val
-    out  = it.base_value + it.amplitude*val
+    out  = it.base_value + amplitude*val
     if it.use_clamp:
         out = max(it.clamp_min, min(it.clamp_max, out))
     return out
@@ -88,6 +105,23 @@ def frame_handler(scene):
                 if it.enabled:
                     v = calc_signal(it, obj, f)
                     set_channel(obj, it.channel, v)
+
+brush_last_obj = None
+def preset_brush_handler(scene):
+    global brush_last_obj
+    if not scene.preset_brush_active:
+        brush_last_obj = None
+        return
+    obj = bpy.context.view_layer.objects.active
+    if obj and obj != brush_last_obj and hasattr(obj, "signal_items"):
+        idx = scene.signal_preset_index
+        if idx < len(scene.signal_presets):
+            pr = scene.signal_presets[idx]
+            if validate_preset(pr.data):
+                arr = json.loads(pr.data)
+                apply_preset_to_object(obj, arr, scene.frame_current,
+                                       scene.preset_mirror)
+    brush_last_obj = obj
 
 # ─────────────────────────────────────────────────────────────────────────────
 #   PRESETS: validación JSON
@@ -237,11 +271,28 @@ class VJLOOPER_OT_load_preset(bpy.types.Operator):
         if not validate_preset(pr.data):
             self.report({'ERROR'},"Preset inválido"); return {'CANCELLED'}
         arr = json.loads(pr.data)
-        ctx.object.signal_items.clear()
-        for d in arr:
-            it = ctx.object.signal_items.add()
-            for k,v in d.items(): setattr(it,k,v)
-            it.start_frame = sc.frame_current
+        apply_preset_to_object(ctx.object, arr, sc.frame_current,
+                               sc.preset_mirror)
+        return {'FINISHED'}
+
+class VJLOOPER_OT_apply_preset_multi(bpy.types.Operator):
+    bl_idname = "vjlooper.apply_preset_multi"
+    bl_label  = "Apply Preset to Selection"
+
+    def execute(self, ctx):
+        sc = ctx.scene; idx = sc.signal_preset_index
+        if idx >= len(sc.signal_presets):
+            return {'CANCELLED'}
+        pr = sc.signal_presets[idx]
+        if not validate_preset(pr.data):
+            self.report({'ERROR'}, "Preset inválido")
+            return {'CANCELLED'}
+        arr = json.loads(pr.data)
+        offset = sc.multi_offset_frames
+        selected = [o for o in ctx.selected_objects if o != ctx.object]
+        for i, obj in enumerate(selected):
+            apply_preset_to_object(obj, arr, sc.frame_current,
+                                   sc.preset_mirror, i * offset)
         return {'FINISHED'}
 
 class VJLOOPER_OT_remove_preset(bpy.types.Operator):
@@ -303,6 +354,21 @@ class VJLOOPER_OT_bake_animation(bpy.types.Operator):
                 if sc.bake_channel=='ROT': ctx.object.rotation_euler=Vector((v,)*3)
                 if sc.bake_channel=='SCL': ctx.object.scale=Vector((v,)*3)
                 ctx.object.keyframe_insert(data_path=sc.bake_channel.lower())
+        return {'FINISHED'}
+
+class VJLOOPER_OT_toggle_preset_brush(bpy.types.Operator):
+    bl_idname = "vjlooper.toggle_preset_brush"
+    bl_label  = "Toggle Preset Brush"
+
+    def execute(self, ctx):
+        sc = ctx.scene
+        sc.preset_brush_active = not sc.preset_brush_active
+        if sc.preset_brush_active:
+            if preset_brush_handler not in bpy.app.handlers.depsgraph_update_post:
+                bpy.app.handlers.depsgraph_update_post.append(preset_brush_handler)
+        else:
+            if preset_brush_handler in bpy.app.handlers.depsgraph_update_post:
+                bpy.app.handlers.depsgraph_update_post.remove(preset_brush_handler)
         return {'FINISHED'}
 
 class VJLOOPER_OT_set_pivot(bpy.types.Operator):
@@ -377,6 +443,11 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
             col.prop(sc, "signal_new_loops", text="Loop Count")
             box.operator("vjlooper.add_signal", text="Add Animation")
 
+            boxg = L.box(); boxg.label(text="Global Scales")
+            boxg.prop(obj, "global_amp_scale", text="Amplitude Scale")
+            boxg.prop(obj, "global_freq_scale", text="Frequency Scale")
+            boxg.prop(obj, "global_dur_scale", text="Duration Scale")
+
             if obj.signal_items:
                 box2 = L.box(); box2.label(text="Animaciones")
                 for i,it in enumerate(obj.signal_items):
@@ -392,6 +463,11 @@ class VJLOOPER_PT_panel(bpy.types.Panel):
         L.operator("vjlooper.import_presets",text="Import Presets")
         if sc.signal_presets:
             L.template_list("UI_UL_list", "vjlooper_presets", sc, "signal_presets", sc, "signal_preset_index")
+            row = L.row(align=True)
+            row.prop(sc, "multi_offset_frames", text="Offset")
+            row.operator("vjlooper.apply_preset_multi", text="Apply to Selection")
+            L.prop(sc, "preset_mirror", text="Mirror")
+            L.operator("vjlooper.toggle_preset_brush", text="Toggle Preset Brush", depress=sc.preset_brush_active)
 
         L.separator()
         L.operator("vjlooper.bake_settings",icon='REC',text="Bake Settings")
@@ -421,11 +497,13 @@ classes = (
     VJLOOPER_OT_remove_signal,
     VJLOOPER_OT_add_preset,
     VJLOOPER_OT_load_preset,
+    VJLOOPER_OT_apply_preset_multi,
     VJLOOPER_OT_remove_preset,
     VJLOOPER_OT_export_presets,
     VJLOOPER_OT_import_presets,
     VJLOOPER_OT_bake_settings,
     VJLOOPER_OT_bake_animation,
+    VJLOOPER_OT_toggle_preset_brush,
     VJLOOPER_OT_set_pivot,
     VJLOOPER_PT_panel,
 )
@@ -434,6 +512,9 @@ def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.Object.signal_items = CollectionProperty(type=SignalItem)
+    bpy.types.Object.global_amp_scale  = FloatProperty(default=1.0)
+    bpy.types.Object.global_freq_scale = FloatProperty(default=1.0)
+    bpy.types.Object.global_dur_scale  = FloatProperty(default=1.0)
     bpy.app.handlers.frame_change_pre.append(frame_handler)
 
     sc = bpy.types.Scene
@@ -455,20 +536,29 @@ def register():
     sc.signal_new_smoothing = FloatProperty(default=0.0)
     sc.signal_presets       = CollectionProperty(type=SignalPreset)
     sc.signal_preset_index  = IntProperty(default=0)
+    sc.multi_offset_frames  = IntProperty(default=0)
+    sc.preset_mirror        = BoolProperty(default=False)
+    sc.preset_brush_active  = BoolProperty(default=False)
     sc.bake_start           = IntProperty(default=1)
     sc.bake_end             = IntProperty(default=250)
     sc.bake_channel         = EnumProperty(items=CHANNEL_BAKE, default='LOC')
 
 def unregister():
     bpy.app.handlers.frame_change_pre.remove(frame_handler)
+    if preset_brush_handler in bpy.app.handlers.depsgraph_update_post:
+        bpy.app.handlers.depsgraph_update_post.remove(preset_brush_handler)
     for c in reversed(classes):
         bpy.utils.unregister_class(c)
     del bpy.types.Object.signal_items
+    del bpy.types.Object.global_amp_scale
+    del bpy.types.Object.global_freq_scale
+    del bpy.types.Object.global_dur_scale
     for prop in [
         "signal_new_channel","signal_new_type","signal_new_amplitude","signal_new_frequency",
         "signal_new_phase","signal_new_duration","signal_new_offset",
         "signal_new_loops","signal_new_clamp","signal_new_clamp_min","signal_new_clamp_max",
         "signal_new_noise","signal_new_smoothing",
-        "signal_presets","signal_preset_index","bake_start","bake_end","bake_channel"
+        "signal_presets","signal_preset_index","multi_offset_frames","preset_mirror","preset_brush_active",
+        "bake_start","bake_end","bake_channel"
     ]:
         delattr(bpy.types.Scene, prop)
