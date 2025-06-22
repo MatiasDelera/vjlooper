@@ -1,3 +1,5 @@
+"""User interface for the VjLooper add-on."""
+
 import bpy
 import os
 from bpy.props import (
@@ -188,7 +190,7 @@ class VJLOOPER_PT_panel(Panel):
         col.use_property_split = True
 
         box = col.box()
-        box.label(text="Crear animacion")
+        box.label(text="Create Animation")
         box.prop(sc, "signal_new_channel", text="Channel", expand=True)
         box.template_icon_view(sc, "signal_new_type", show_labels=True, scale=5.0)
         row = box.row()
@@ -202,7 +204,7 @@ class VJLOOPER_PT_panel(Panel):
         box.operator("vjlooper.add_signal", text="Add Animation")
 
         boxg = col.box()
-        boxg.label(text="Escalas globales")
+        boxg.label(text="Global Scales")
         boxg.prop(obj, "global_amp_scale", text="Amplitude Scale")
         boxg.prop(obj, "global_freq_scale", text="Frequency Scale")
         boxg.prop(obj, "global_dur_scale", text="Duration Scale")
@@ -213,7 +215,7 @@ class VJLOOPER_PT_panel(Panel):
             col = L.column()
             col.use_property_split = True
             box2 = col.box()
-            box2.label(text="Animaciones")
+            box2.label(text="Animations")
             for i, it in enumerate(obj.signal_items):
                 sub = box2.box()
                 sub.alert = not it.enabled
