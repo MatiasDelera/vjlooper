@@ -50,6 +50,7 @@ CHANNEL_ITEMS = [
     ('SCL_Y', "Scale Y",   ""),
     ('SCL_Z', "Scale Z",   ""),
     ('SCL_ALL', "Uniform Scale", ""),
+    ('GN_SCROLL', 'GN Scroll', ''),
 ]
 
 brush_last_obj = None
@@ -149,6 +150,7 @@ def set_channel(obj, ch, v):
     if ch == 'SCL_Y': obj.scale.y = v
     if ch == 'SCL_Z': obj.scale.z = v
     if ch == 'SCL_ALL': obj.scale = (v, v, v)
+    if ch == 'GN_SCROLL': obj.tfx_scroll_speed = v
 
 
 def get_channel_value(obj, ch):
@@ -163,6 +165,7 @@ def get_channel_value(obj, ch):
     if ch == 'SCL_Y': return obj.scale.y
     if ch == 'SCL_Z': return obj.scale.z
     if ch == 'SCL_ALL': return obj.scale.x
+    if ch == 'GN_SCROLL': return getattr(obj, 'tfx_scroll_speed', 0.0)
     return 0.0
 
 
