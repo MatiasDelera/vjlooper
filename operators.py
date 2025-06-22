@@ -520,8 +520,8 @@ class VJLOOPER_OT_random_hue_shift(Operator):
     def execute(self, ctx):
         import colorsys
         sc = ctx.scene
-        prefs = ctx.preferences.addons[__package__].preferences
-        rng = self.range if self.range > 0 else prefs.hue_shift_range
+        prefs = signals._prefs()
+        rng = self.range if self.range > 0 else (prefs.hue_shift_range if prefs else 0.0)
         mats = signals.get_materials_list(sc)
         idx = sc.vj_material_index
         if idx >= len(mats):
