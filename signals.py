@@ -13,11 +13,13 @@ from .core import persistence as core_persistence
 
 
 def _scene():
-    """Return the current scene or fallback to first available scene."""
-    if hasattr(bpy.context, "scene") and bpy.context.scene:
-        return bpy.context.scene
-    if bpy.data.scenes:
-        return bpy.data.scenes[0]
+    """Return the current scene or first available scene if accessible."""
+    ctx = getattr(bpy, "context", None)
+    if ctx and getattr(ctx, "scene", None):
+        return ctx.scene
+    data = getattr(bpy, "data", None)
+    if data and hasattr(data, "scenes") and data.scenes:
+        return data.scenes[0]
     return None
 
 
