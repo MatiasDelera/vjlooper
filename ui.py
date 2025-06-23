@@ -544,10 +544,14 @@ def register_props():
 
 def unregister_props():
     """Remove custom properties from Blender data-blocks."""
-    del bpy.types.Object.signal_items
-    del bpy.types.Object.global_amp_scale
-    del bpy.types.Object.global_freq_scale
-    del bpy.types.Object.global_dur_scale
+    if hasattr(bpy.types.Object, "signal_items"):
+        del bpy.types.Object.signal_items
+    if hasattr(bpy.types.Object, "global_amp_scale"):
+        del bpy.types.Object.global_amp_scale
+    if hasattr(bpy.types.Object, "global_freq_scale"):
+        del bpy.types.Object.global_freq_scale
+    if hasattr(bpy.types.Object, "global_dur_scale"):
+        del bpy.types.Object.global_dur_scale
 
     for prop in [
         "signal_new_channel", "signal_new_type", "signal_new_amplitude",
@@ -563,7 +567,8 @@ def unregister_props():
         "bake_start", "bake_end", "bake_channel",
         "vj_material_index", "vj_target_collection", "vj_only_used", "vj_filtered_materials",
     ]:
-        delattr(bpy.types.Scene, prop)
+        if hasattr(bpy.types.Scene, prop):
+            delattr(bpy.types.Scene, prop)
     for c in reversed(property_classes):
         bpy.utils.unregister_class(c)
 
