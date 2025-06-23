@@ -15,8 +15,12 @@ bl_info = {
 
 import os
 if os.environ.get("VJ_TESTING"):
-    import types
-    bpy = types.SimpleNamespace(app=types.SimpleNamespace(version=(3, 6, 0)))
+    import sys, types
+    bpy = sys.modules.get("bpy")
+    if bpy is None:
+        bpy = types.ModuleType("bpy")
+        bpy.app = types.SimpleNamespace(version=(3, 6, 0))
+        sys.modules["bpy"] = bpy
 else:
     import bpy
 
@@ -67,26 +71,51 @@ translation_dict = {
     }
 }
 
-if not os.environ.get("VJ_TESTING"):
-    from . import signals, operators, ui, tunnelfx
+from . import signals, operators, ui, tunnelfx
 
 
 def register():
-    ui.register_props()
-    sc = _scene()
-    if sc and not sc.signal_presets:
-        p = sc.signal_presets.add()
-        p.name = "Empty"
-        p.data = "[]"
-    operators.register()
-    tunnelfx.register()
-    ui.register()
+    """Register addon and roll back on failure."""
+    steps = []
     try:
-        bpy.app.translations.register(__package__, translation_dict)
-    except ValueError:
-        bpy.app.translations.unregister(__package__)
-        bpy.app.translations.register(__package__, translation_dict)
-    signals.register()
+        ui.register_props()
+        steps.append("props")
+        sc = _scene()
+        if sc and not sc.signal_presets:
+            p = sc.signal_presets.add()
+            p.name = "Empty"
+            p.data = "[]"
+        operators.register()
+        steps.append("operators")
+        tunnelfx.register()
+        steps.append("tunnelfx")
+        ui.register()
+        steps.append("ui")
+        try:
+            bpy.app.translations.register(__package__, translation_dict)
+        except ValueError:
+            bpy.app.translations.unregister(__package__)
+            bpy.app.translations.register(__package__, translation_dict)
+        steps.append("translations")
+        signals.register()
+        steps.append("signals")
+    except Exception:
+        if "signals" in steps:
+            signals.unregister()
+        if "translations" in steps:
+            try:
+                bpy.app.translations.unregister(__package__)
+            except Exception:
+                pass
+        if "ui" in steps:
+            ui.unregister()
+        if "tunnelfx" in steps:
+            tunnelfx.unregister()
+        if "operators" in steps:
+            operators.unregister()
+        if "props" in steps:
+            ui.unregister_props()
+        raise
 
 
 def unregister():
