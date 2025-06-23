@@ -382,70 +382,163 @@ classes = (
 def register_props():
     """Register custom properties for Object and Scene types."""
     for c in property_classes:
-        bpy.utils.register_class(c)
+        try:
+            bpy.utils.register_class(c)
+        except ValueError:
+            existing = getattr(bpy.types, c.__name__, None)
+            if existing:
+                bpy.utils.unregister_class(existing)
+            bpy.utils.register_class(c)
+
+    if hasattr(bpy.types.Object, "signal_items"):
+        del bpy.types.Object.signal_items
     bpy.types.Object.signal_items = CollectionProperty(type=SignalItem)
+    if hasattr(bpy.types.Object, "global_amp_scale"):
+        del bpy.types.Object.global_amp_scale
     bpy.types.Object.global_amp_scale = FloatProperty(default=1.0, description="Amplitude multiplier")
+    if hasattr(bpy.types.Object, "global_freq_scale"):
+        del bpy.types.Object.global_freq_scale
     bpy.types.Object.global_freq_scale = FloatProperty(default=1.0, description="Frequency multiplier")
+    if hasattr(bpy.types.Object, "global_dur_scale"):
+        del bpy.types.Object.global_dur_scale
     bpy.types.Object.global_dur_scale = FloatProperty(default=1.0, description="Duration multiplier")
 
     sc = bpy.types.Scene
+    if hasattr(sc, "signal_new_channel"):
+        delattr(sc, "signal_new_channel")
     sc.signal_new_channel = EnumProperty(items=signals.CHANNEL_ITEMS, default='LOC_X')
+    if hasattr(sc, "signal_new_type"):
+        delattr(sc, "signal_new_type")
     sc.signal_new_type = EnumProperty(items=[
         ('SINE', 'Sine', ''), ('COSINE', 'Cosine', ''), ('SQUARE', 'Square', ''),
         ('TRIANGLE', 'Triangle', ''), ('SAWTOOTH', 'Sawtooth', ''), ('NOISE', 'Noise', '')
     ], default='SINE')
+    if hasattr(sc, "signal_new_amplitude"):
+        delattr(sc, "signal_new_amplitude")
     sc.signal_new_amplitude = FloatProperty(default=1.0, description="Default amplitude")
+    if hasattr(sc, "signal_new_frequency"):
+        delattr(sc, "signal_new_frequency")
     sc.signal_new_frequency = FloatProperty(
         default=1.0,
         description="Default frequency",
         update=signals.update_new_frequency,
     )
+    if hasattr(sc, "signal_new_phase"):
+        delattr(sc, "signal_new_phase")
     sc.signal_new_phase = FloatProperty(default=0.0, description="Default phase")
+    if hasattr(sc, "signal_new_duration"):
+        delattr(sc, "signal_new_duration")
     sc.signal_new_duration = IntProperty(
         default=24,
         description="Default duration",
         update=signals.update_new_duration,
     )
+    if hasattr(sc, "signal_new_offset"):
+        delattr(sc, "signal_new_offset")
     sc.signal_new_offset = IntProperty(default=0, description="Frame offset when creating")
+    if hasattr(sc, "signal_new_loops"):
+        delattr(sc, "signal_new_loops")
     sc.signal_new_loops = IntProperty(default=0, description="Loop count")
+    if hasattr(sc, "signal_new_clamp"):
+        delattr(sc, "signal_new_clamp")
     sc.signal_new_clamp = BoolProperty(default=False, description="Use clamp")
+    if hasattr(sc, "signal_new_clamp_min"):
+        delattr(sc, "signal_new_clamp_min")
     sc.signal_new_clamp_min = FloatProperty(default=-1.0, description="Clamp min")
+    if hasattr(sc, "signal_new_clamp_max"):
+        delattr(sc, "signal_new_clamp_max")
     sc.signal_new_clamp_max = FloatProperty(default=1.0, description="Clamp max")
+    if hasattr(sc, "signal_new_noise"):
+        delattr(sc, "signal_new_noise")
     sc.signal_new_noise = IntProperty(default=0, description="Noise seed")
+    if hasattr(sc, "signal_new_smoothing"):
+        delattr(sc, "signal_new_smoothing")
     sc.signal_new_smoothing = FloatProperty(default=0.0, description="Smoothing")
 
+    if hasattr(sc, "signal_presets"):
+        delattr(sc, "signal_presets")
     sc.signal_presets = CollectionProperty(type=SignalPreset)
+    if hasattr(sc, "signal_preset_index"):
+        delattr(sc, "signal_preset_index")
     sc.signal_preset_index = IntProperty(default=0)
+    if hasattr(sc, "preset_category_filter"):
+        delattr(sc, "preset_category_filter")
     sc.preset_category_filter = StringProperty(default="", description="Filter presets by category")
+    if hasattr(sc, "category_rename_from"):
+        delattr(sc, "category_rename_from")
     sc.category_rename_from = StringProperty(default="")
+    if hasattr(sc, "category_rename_to"):
+        delattr(sc, "category_rename_to")
     sc.category_rename_to = StringProperty(default="")
+    if hasattr(sc, "ui_show_create"):
+        delattr(sc, "ui_show_create")
     sc.ui_show_create = BoolProperty(default=True)
+    if hasattr(sc, "ui_show_items"):
+        delattr(sc, "ui_show_items")
     sc.ui_show_items = BoolProperty(default=True)
+    if hasattr(sc, "ui_show_presets"):
+        delattr(sc, "ui_show_presets")
     sc.ui_show_presets = BoolProperty(default=True)
+    if hasattr(sc, "ui_show_bake"):
+        delattr(sc, "ui_show_bake")
     sc.ui_show_bake = BoolProperty(default=True)
+    if hasattr(sc, "ui_show_materials"):
+        delattr(sc, "ui_show_materials")
     sc.ui_show_materials = BoolProperty(default=True)
+    if hasattr(sc, "ui_show_misc"):
+        delattr(sc, "ui_show_misc")
     sc.ui_show_misc = BoolProperty(default=True)
 
+    if hasattr(sc, "multi_offset_frames"):
+        delattr(sc, "multi_offset_frames")
     sc.multi_offset_frames = IntProperty(default=0, description="Frame offset between objects")
+    if hasattr(sc, "offset_mode"):
+        delattr(sc, "offset_mode")
     sc.offset_mode = EnumProperty(items=[
         ('LINEAR', 'Linear', ''),
         ('RADIAL', 'Radial', ''),
         ('BPM', 'Beat', '')
     ], default='LINEAR')
+    if hasattr(sc, "offset_radial_factor"):
+        delattr(sc, "offset_radial_factor")
     sc.offset_radial_factor = FloatProperty(default=1.0, description="Frames per unit for radial offset")
+    if hasattr(sc, "offset_bpm"):
+        delattr(sc, "offset_bpm")
     sc.offset_bpm = IntProperty(default=120, description="BPM for beat grid")
+    if hasattr(sc, "preset_mirror"):
+        delattr(sc, "preset_mirror")
     sc.preset_mirror = BoolProperty(default=False, description="Mirror amplitude when loading")
+    if hasattr(sc, "loop_lock"):
+        delattr(sc, "loop_lock")
     sc.loop_lock = BoolProperty(default=False, description="Quantize signals for perfect loops")
+    if hasattr(sc, "preset_brush_active"):
+        delattr(sc, "preset_brush_active")
     sc.preset_brush_active = BoolProperty(default=False, description="Enable preset brush mode")
+    if hasattr(sc, "brush_offset_step"):
+        delattr(sc, "brush_offset_step")
     sc.brush_offset_step = IntProperty(default=0, description="Frame step when using preset brush")
 
+    if hasattr(sc, "bake_start"):
+        delattr(sc, "bake_start")
     sc.bake_start = IntProperty(default=1)
+    if hasattr(sc, "bake_end"):
+        delattr(sc, "bake_end")
     sc.bake_end = IntProperty(default=250)
+    if hasattr(sc, "bake_channel"):
+        delattr(sc, "bake_channel")
     sc.bake_channel = EnumProperty(items=signals.CHANNEL_BAKE, default='LOC')
 
+    if hasattr(sc, "vj_material_index"):
+        delattr(sc, "vj_material_index")
     sc.vj_material_index = IntProperty(default=0)
+    if hasattr(sc, "vj_target_collection"):
+        delattr(sc, "vj_target_collection")
     sc.vj_target_collection = PointerProperty(type=bpy.types.Collection, name="Target Collection")
+    if hasattr(sc, "vj_only_used"):
+        delattr(sc, "vj_only_used")
     sc.vj_only_used = BoolProperty(name="Only used", default=False)
+    if hasattr(sc, "vj_filtered_materials"):
+        delattr(sc, "vj_filtered_materials")
     sc.vj_filtered_materials = CollectionProperty(type=VJMaterialItem)
 
 
