@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Slide In Left",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_X",
+        "signal_type": "SAWTOOTH",
+        "amplitude": -1.0,
+        "frequency": 1.0,
+        "phase_offset": 0.0,
+        "duration": 24,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -5.0,
+        "clamp_max": 0.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Push Object",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_Y",
+        "signal_type": "SINE",
+        "amplitude": 2.0,
+        "frequency": 0.5,
+        "phase_offset": 0.0,
+        "duration": 48,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -10.0,
+        "clamp_max": 10.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Bounce In",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_Z",
+        "signal_type": "SINE",
+        "amplitude": 3.0,
+        "frequency": 1.5,
+        "phase_offset": 0.0,
+        "duration": 24,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -10.0,
+        "clamp_max": 10.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Overshoot",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "ROT_Z",
+        "signal_type": "SINE",
+        "amplitude": 45.0,
+        "frequency": 1.2,
+        "phase_offset": 0.0,
+        "duration": 24,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -90.0,
+        "clamp_max": 90.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Parallax Entrance",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_Z",
+        "signal_type": "SAWTOOTH",
+        "amplitude": -5.0,
+        "frequency": 0.5,
+        "phase_offset": 0.0,
+        "duration": 48,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -20.0,
+        "clamp_max": 0.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Staggered Move",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_X",
+        "signal_type": "SQUARE",
+        "amplitude": 1.0,
+        "frequency": 2.0,
+        "phase_offset": 0.0,
+        "duration": 12,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -10.0,
+        "clamp_max": 10.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Z-Axis Fly In",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "LOC_Z",
+        "signal_type": "SAWTOOTH",
+        "amplitude": -10.0,
+        "frequency": 0.8,
+        "phase_offset": 0.0,
+        "duration": 24,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -20.0,
+        "clamp_max": 0.0,
+        "noise_seed": 0,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  },
+  {
+    "name": "Jitter",
+    "category": "General",
+    "data": [
+      {
+        "enabled": true,
+        "name": "Animation01",
+        "channel": "ROT_Z",
+        "signal_type": "NOISE",
+        "amplitude": 5.0,
+        "frequency": 10.0,
+        "phase_offset": 0.0,
+        "duration": 24,
+        "offset": 0,
+        "loop_count": 0,
+        "use_clamp": false,
+        "clamp_min": -45.0,
+        "clamp_max": 45.0,
+        "noise_seed": 1,
+        "smoothing": 0.0,
+        "base_value": 0.0,
+        "start_frame": 0
+      }
+    ]
+  }
+]
