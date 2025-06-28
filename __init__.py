@@ -71,7 +71,7 @@ translation_dict = {
     }
 }
 
-from . import signals, operators, ui, tunnelfx
+from . import signals, operators, ui, tunnelfx, type_animator
 
 
 def register():
@@ -89,6 +89,8 @@ def register():
         steps.append("operators")
         tunnelfx.register()
         steps.append("tunnelfx")
+        type_animator.register()
+        steps.append("type_animator")
         ui.register()
         steps.append("ui")
         try:
@@ -111,6 +113,8 @@ def register():
             ui.unregister()
         if "tunnelfx" in steps:
             tunnelfx.unregister()
+        if "type_animator" in steps:
+            type_animator.unregister()
         if "operators" in steps:
             operators.unregister()
         if "props" in steps:
@@ -126,6 +130,7 @@ def unregister():
         pass
     ui.unregister()
     tunnelfx.unregister()
+    type_animator.unregister()
     operators.unregister()
     ui.unregister_props()
 
