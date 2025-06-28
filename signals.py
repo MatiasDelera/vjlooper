@@ -312,6 +312,11 @@ def load_presets_from_disk():
         return
     path = Path(get_preset_file())
     presets = core_persistence.load_presets(path)
+    if not presets:
+        fallback = Path(os.path.join(os.path.dirname(__file__), "example_presets.json"))
+        if fallback.exists():
+            with open(fallback) as f:
+                presets = json.load(f)
     if presets:
         sc.signal_presets.clear()
         for e in presets:
