@@ -30,23 +30,29 @@ smoothing_cache = {}
 
 
 def _wave(signal_type: str, t: float, seed: int, frame: int) -> float:
-    if signal_type == 'SINE':
+    if signal_type == "SINE":
         return math.sin(2 * math.pi * t)
-    if signal_type == 'COSINE':
+    if signal_type == "COSINE":
         return math.cos(2 * math.pi * t)
-    if signal_type == 'SQUARE':
+    if signal_type == "SQUARE":
         return 1.0 if math.sin(2 * math.pi * t) >= 0 else -1.0
-    if signal_type == 'TRIANGLE':
+    if signal_type == "TRIANGLE":
         p = t % 1.0
         return 4 * p - 1 if p < 0.5 else 3 - 4 * p
-    if signal_type == 'SAWTOOTH':
+    if signal_type == "SAWTOOTH":
         return 2 * (t % 1.0) - 1
-    if signal_type == 'NOISE':
+    if signal_type == "NOISE":
         return noise.noise_value(seed + frame)
     return 0.0
 
 
-def calc_signal(params: SignalParams, frame: int, *, loop_lock: bool = False) -> float:
+def calc_signal(
+    params: SignalParams,
+    frame: int,
+    *,
+    loop_lock: bool = False,
+    cache_key: Optional[object] = None,
+) -> float:
     """Calculate signal value for given frame using pure parameters."""
     sf = params.start_frame + params.offset
     if frame < sf:
@@ -68,11 +74,20 @@ def calc_signal(params: SignalParams, frame: int, *, loop_lock: bool = False) ->
     seed_frame = cycle if loop_lock else frame
     wave = _wave(params.signal_type, t, params.noise_seed, seed_frame)
 
-    last = smoothing_cache.get(id(params), wave)
-    val = last * params.smoothing + wave * (1 - params.smoothing) if params.smoothing else wave
-    smoothing_cache[id(params)] = val
+    key = id(params) if cache_key is None else cache_key
+    last = smoothing_cache.get(key, wave)
+    val = (
+        last * params.smoothing + wave * (1 - params.smoothing)
+        if params.smoothing
+        else wave
+    )
+    smoothing_cache[key] = val
 
-    if loop_lock and params.blend_frames > 0 and cycle >= duration - params.blend_frames:
+    if (
+        loop_lock
+        and params.blend_frames > 0
+        and cycle >= duration - params.blend_frames
+    ):
         factor = (cycle - (duration - params.blend_frames)) / params.blend_frames
         t0 = params.phase_offset / 360.0
         start_w = _wave(params.signal_type, t0, params.noise_seed, seed_frame)
