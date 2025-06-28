@@ -8,8 +8,11 @@ _PATH = Path(__file__).parent / 'assets' / 'gn' / 'TunnelFX_CYL.blend'
 
 
 def load_group():
+<<<<<<< HEAD
     if not hasattr(bpy.data, 'node_groups'):
         return None
+=======
+>>>>>>> b737108419ebcdd22dcb540e5415bf4baaa83865
     if _GROUP in bpy.data.node_groups:
         return bpy.data.node_groups[_GROUP]
     if _PATH.exists():
@@ -64,14 +67,24 @@ def register():
     bpy.types.Object.tfx_radius = bpy.props.FloatProperty(default=1.0)
     bpy.types.Object.tfx_length = bpy.props.FloatProperty(default=5.0)
     bpy.types.Object.tfx_scroll_speed = bpy.props.FloatProperty(default=0.0, update=update_scroll)
+<<<<<<< HEAD
+=======
+    load_group()
+>>>>>>> b737108419ebcdd22dcb540e5415bf4baaa83865
     bpy.utils.register_class(VJLOOPER_OT_add_tunnel)
 
 
 def unregister():
     bpy.utils.unregister_class(VJLOOPER_OT_add_tunnel)
+<<<<<<< HEAD
     if hasattr(bpy.types.Object, 'tfx_radius'):
         del bpy.types.Object.tfx_radius
     if hasattr(bpy.types.Object, 'tfx_length'):
         del bpy.types.Object.tfx_length
     if hasattr(bpy.types.Object, 'tfx_scroll_speed'):
         del bpy.types.Object.tfx_scroll_speed
+=======
+    del bpy.types.Object.tfx_radius
+    del bpy.types.Object.tfx_length
+    del bpy.types.Object.tfx_scroll_speed
+>>>>>>> b737108419ebcdd22dcb540e5415bf4baaa83865
