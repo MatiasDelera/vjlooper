@@ -27,46 +27,30 @@ def _prefs():
     addon = bpy.context.preferences.addons.get(__package__)
     return getattr(addon, "preferences", None)
 
-class SignalCache:
-    """Simple per-frame cache for computed signal values."""
-    def __init__(self):
-        self.cache = {}
-        self.last_frame = -1
-
-    def get(self, key, frame, calc):
-        if frame != self.last_frame:
-            self.cache.clear()
-            self.last_frame = frame
-        if key not in self.cache:
-            self.cache[key] = calc()
-        return self.cache[key]
-
-signal_cache = SignalCache()
-smoothing_cache = {}
 
 CHANNEL_BAKE = [
-    ('LOC', 'Location', ''),
-    ('ROT', 'Rotation', ''),
-    ('SCL', 'Scale',   ''),
+    ("LOC", "Location", ""),
+    ("ROT", "Rotation", ""),
+    ("SCL", "Scale", ""),
 ]
 
 CHANNEL_ITEMS = [
-    ('LOC_X', "Position X", ""),
-    ('LOC_Y', "Position Y", ""),
-    ('LOC_Z', "Position Z", ""),
-    ('ROT_X', "Rotation X", ""),
-    ('ROT_Y', "Rotation Y", ""),
-    ('ROT_Z', "Rotation Z", ""),
-    ('SCL_X', "Scale X",   ""),
-    ('SCL_Y', "Scale Y",   ""),
-    ('SCL_Z', "Scale Z",   ""),
-    ('SCL_ALL', "Uniform Scale", ""),
-    ('GN_SCROLL', 'GN Scroll', ''),
+    ("LOC_X", "Position X", ""),
+    ("LOC_Y", "Position Y", ""),
+    ("LOC_Z", "Position Z", ""),
+    ("ROT_X", "Rotation X", ""),
+    ("ROT_Y", "Rotation Y", ""),
+    ("ROT_Z", "Rotation Z", ""),
+    ("SCL_X", "Scale X", ""),
+    ("SCL_Y", "Scale Y", ""),
+    ("SCL_Z", "Scale Z", ""),
+    ("SCL_ALL", "Uniform Scale", ""),
+    ("GN_SCROLL", "GN Scroll", ""),
 ]
 
 brush_last_obj = None
-brush_counter  = 0
-preview_handle  = None
+brush_counter = 0
+preview_handle = None
 
 
 def update_frequency(self, ctx):
@@ -147,37 +131,62 @@ def calc_signal(it, obj, frame):
     )
     sc = _scene()
     loop_lock = getattr(sc, "loop_lock", False) if sc else False
-    return core_signals.calc_signal(params, frame, loop_lock=loop_lock)
+    cache_key = (getattr(obj, "name", None), getattr(it, "name", None))
+    return core_signals.calc_signal(
+        params, frame, loop_lock=loop_lock, cache_key=cache_key
+    )
 
 
 def set_channel(obj, ch, v):
     """Write value v to object's channel ch."""
-    if ch == 'LOC_X': obj.location.x = v
-    if ch == 'LOC_Y': obj.location.y = v
-    if ch == 'LOC_Z': obj.location.z = v
-    if ch == 'ROT_X': obj.rotation_euler.x = v
-    if ch == 'ROT_Y': obj.rotation_euler.y = v
-    if ch == 'ROT_Z': obj.rotation_euler.z = v
-    if ch == 'SCL_X': obj.scale.x = v
-    if ch == 'SCL_Y': obj.scale.y = v
-    if ch == 'SCL_Z': obj.scale.z = v
-    if ch == 'SCL_ALL': obj.scale = (v, v, v)
-    if ch == 'GN_SCROLL': obj.tfx_scroll_speed = v
+    if ch == "LOC_X":
+        obj.location.x = v
+    if ch == "LOC_Y":
+        obj.location.y = v
+    if ch == "LOC_Z":
+        obj.location.z = v
+    if ch == "ROT_X":
+        obj.rotation_euler.x = v
+    if ch == "ROT_Y":
+        obj.rotation_euler.y = v
+    if ch == "ROT_Z":
+        obj.rotation_euler.z = v
+    if ch == "SCL_X":
+        obj.scale.x = v
+    if ch == "SCL_Y":
+        obj.scale.y = v
+    if ch == "SCL_Z":
+        obj.scale.z = v
+    if ch == "SCL_ALL":
+        obj.scale = (v, v, v)
+    if ch == "GN_SCROLL":
+        obj.tfx_scroll_speed = v
 
 
 def get_channel_value(obj, ch):
     """Return current value of channel ch from obj."""
-    if ch == 'LOC_X': return obj.location.x
-    if ch == 'LOC_Y': return obj.location.y
-    if ch == 'LOC_Z': return obj.location.z
-    if ch == 'ROT_X': return obj.rotation_euler.x
-    if ch == 'ROT_Y': return obj.rotation_euler.y
-    if ch == 'ROT_Z': return obj.rotation_euler.z
-    if ch == 'SCL_X': return obj.scale.x
-    if ch == 'SCL_Y': return obj.scale.y
-    if ch == 'SCL_Z': return obj.scale.z
-    if ch == 'SCL_ALL': return obj.scale.x
-    if ch == 'GN_SCROLL': return getattr(obj, 'tfx_scroll_speed', 0.0)
+    if ch == "LOC_X":
+        return obj.location.x
+    if ch == "LOC_Y":
+        return obj.location.y
+    if ch == "LOC_Z":
+        return obj.location.z
+    if ch == "ROT_X":
+        return obj.rotation_euler.x
+    if ch == "ROT_Y":
+        return obj.rotation_euler.y
+    if ch == "ROT_Z":
+        return obj.rotation_euler.z
+    if ch == "SCL_X":
+        return obj.scale.x
+    if ch == "SCL_Y":
+        return obj.scale.y
+    if ch == "SCL_Z":
+        return obj.scale.z
+    if ch == "SCL_ALL":
+        return obj.scale.x
+    if ch == "GN_SCROLL":
+        return getattr(obj, "tfx_scroll_speed", 0.0)
     return 0.0
 
 
@@ -185,10 +194,13 @@ def get_materials_list(scene):
     """Return list of materials filtered by scene.vj_only_used."""
     if getattr(scene, "vj_only_used", False):
         return [
-            m for m in bpy.data.materials
+            m
+            for m in bpy.data.materials
             if any(
-                o for o in bpy.data.objects
-                if m.name in [slot.material.name for slot in o.material_slots if slot.material]
+                o
+                for o in bpy.data.objects
+                if m.name
+                in [slot.material.name for slot in o.material_slots if slot.material]
             )
         ]
     return list(bpy.data.materials)
@@ -211,7 +223,7 @@ def draw_preview_callback():
     if not prefs or not prefs.use_preview:
         return
     region = bpy.context.region
-    rv3d   = bpy.context.region_data
+    rv3d = bpy.context.region_data
     if not region or not rv3d:
         return
     font_id = 0
@@ -246,7 +258,7 @@ def preset_brush_handler(scene):
                     arr,
                     scene.frame_current,
                     scene.preset_mirror,
-                    brush_counter * scene.brush_offset_step
+                    brush_counter * scene.brush_offset_step,
                 )
                 brush_counter += 1
     brush_last_obj = obj
@@ -333,7 +345,8 @@ def register():
     global preview_handle
     if prefs and prefs.use_preview and preview_handle is None:
         preview_handle = bpy.types.SpaceView3D.draw_handler_add(
-            draw_preview_callback, (), 'WINDOW', 'POST_PIXEL')
+            draw_preview_callback, (), "WINDOW", "POST_PIXEL"
+        )
     if update_signal_markers not in bpy.app.handlers.depsgraph_update_post:
         bpy.app.handlers.depsgraph_update_post.append(update_signal_markers)
 
@@ -347,5 +360,5 @@ def unregister():
         bpy.app.handlers.depsgraph_update_post.remove(update_signal_markers)
     global preview_handle
     if preview_handle is not None:
-        bpy.types.SpaceView3D.draw_handler_remove(preview_handle, 'WINDOW')
+        bpy.types.SpaceView3D.draw_handler_remove(preview_handle, "WINDOW")
         preview_handle = None
