@@ -382,9 +382,12 @@ classes = (
 def register_props():
     """Register custom properties for Object and Scene types."""
     for c in property_classes:
-        existing = getattr(bpy.types, c.__name__, None)
-        if existing:
-            bpy.utils.unregister_class(existing)
+        # remove any previously registered class with the same name
+        while hasattr(bpy.types, c.__name__):
+            try:
+                bpy.utils.unregister_class(getattr(bpy.types, c.__name__))
+            except Exception:
+                break
         bpy.utils.register_class(c)
 
     if hasattr(bpy.types.Object, "signal_items"):
@@ -567,12 +570,12 @@ def unregister_props():
         if hasattr(bpy.types.Scene, prop):
             delattr(bpy.types.Scene, prop)
     for c in reversed(property_classes):
-        existing = getattr(bpy.types, c.__name__, None)
-        if existing:
+        # remove any lingering class definitions with this name
+        while hasattr(bpy.types, c.__name__):
             try:
-                bpy.utils.unregister_class(existing)
+                bpy.utils.unregister_class(getattr(bpy.types, c.__name__))
             except Exception:
-                pass
+                break
 
 
 def register():
