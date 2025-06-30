@@ -5,7 +5,7 @@ bl_info = {
     "author": "Matias Delera",
     "version": (1, 3, 0),
     "blender": (3, 0, 0),
-    "location": "View3D > Sidebar > VjLooper",
+    "location": "View3D > Sidebar > Animator",
     "description": (
         "Advanced procedural animation with presets, bake, preview and hot-"
         "reload"

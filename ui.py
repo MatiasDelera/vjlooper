@@ -132,11 +132,11 @@ class VJLOOPER_Preferences(AddonPreferences):
 
 
 class VJLOOPER_PT_panel(Panel):
-    bl_label = "VjLooper"
+    bl_label = "Animator"
     bl_idname = "VJLOOPER_PT_panel"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = "VjLooper"
+    bl_category = "Animator"
 
     def draw(self, ctx):
         layout = self.layout
@@ -179,17 +179,7 @@ class VJLOOPER_PT_panel(Panel):
         if sc.ui_show_bake:
             self.draw_bake_ui(col)
 
-        h = col.row()
-        h.prop(sc, "ui_show_materials", text="", icon='TRIA_DOWN' if sc.ui_show_materials else 'TRIA_RIGHT', emboss=False)
-        h.label(text="Materials")
-        if sc.ui_show_materials:
-            self.draw_materials_ui(col, ctx)
 
-        h = col.row()
-        h.prop(sc, "ui_show_misc", text="", icon='TRIA_DOWN' if sc.ui_show_misc else 'TRIA_RIGHT', emboss=False)
-        h.label(text="Misc")
-        if sc.ui_show_misc:
-            self.draw_misc_ui(col, ctx)
 
     def draw_create_ui(self, L, ctx):
         sc = ctx.scene
@@ -322,7 +312,7 @@ class VJLOOPER_PT_panel(Panel):
         box.prop(sc, "vj_only_used", text="Show only used")
         tunnelfx.draw_ui(box, ctx)
 
-    def draw_misc_ui(self, L, ctx):
+    def draw_tools_ui(self, L, ctx):
         L.separator()
         box_p = L.box()
         box_p.label(text="Set Pivot")
@@ -337,6 +327,28 @@ class VJLOOPER_PT_panel(Panel):
         L.separator()
         L.prop(ctx.scene, "loop_lock", text="Loop Lock")
         L.operator("vjlooper.hot_reload", icon='FILE_REFRESH', text="Reload Addon")
+
+
+class VJLOOPER_PT_tools(Panel):
+    bl_label = "Tools"
+    bl_idname = "VJLOOPER_PT_tools"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Animator"
+
+    def draw(self, ctx):
+        VJLOOPER_PT_panel.draw_tools_ui(self, self.layout, ctx)
+
+
+class VJLOOPER_PT_materials(Panel):
+    bl_label = "Materials"
+    bl_idname = "VJLOOPER_PT_materials"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Animator"
+
+    def draw(self, ctx):
+        VJLOOPER_PT_panel.draw_materials_ui(self, self.layout, ctx)
 
 
 addon_keymaps = []
@@ -376,6 +388,8 @@ classes = (
     VJLOOPER_UL_presets,
     VJLOOPER_UL_materials,
     VJLOOPER_PT_panel,
+    VJLOOPER_PT_tools,
+    VJLOOPER_PT_materials,
 )
 
 
