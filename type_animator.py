@@ -336,7 +336,7 @@ class VIEW3D_PT_type_animator(bpy.types.Panel):
     bl_idname = "VIEW3D_PT_type_animator"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
-    bl_category = 'VjLooper'
+    bl_category = 'Animator'
 
     def draw(self, context):
         layout = self.layout
