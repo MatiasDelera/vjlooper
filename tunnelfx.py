@@ -9,13 +9,19 @@ _PATH = Path(__file__).parent / "assets" / "gn" / "TunnelFX_CYL.blend"
 
 def load_group():
     """Load and return the geometry node group for the tunnel effect."""
-    if _GROUP in bpy.data.node_groups:
-        return bpy.data.node_groups[_GROUP]
+    node_groups = getattr(getattr(bpy, "data", None), "node_groups", None)
+    if node_groups is None:
+        return None
+    if _GROUP in node_groups:
+        return node_groups[_GROUP]
     if _PATH.exists():
-        with bpy.data.libraries.load(str(_PATH), link=False) as (data_from, data_to):
+        with bpy.data.libraries.load(str(_PATH), link=False) as (
+            data_from,
+            data_to,
+        ):
             if _GROUP in data_from.node_groups:
                 data_to.node_groups.append(_GROUP)
-    return bpy.data.node_groups.get(_GROUP)
+    return node_groups.get(_GROUP)
 
 
 def update_scroll(self, ctx):
@@ -74,6 +80,6 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(VJLOOPER_OT_add_tunnel)
-    del bpy.types.Object.tfx_radius
-    del bpy.types.Object.tfx_length
-    del bpy.types.Object.tfx_scroll_speed
+    for attr in ("tfx_radius", "tfx_length", "tfx_scroll_speed"):
+        if hasattr(bpy.types.Object, attr):
+            delattr(bpy.types.Object, attr)
