@@ -9,7 +9,14 @@ _PATH = Path(__file__).parent / "assets" / "gn" / "TunnelFX_CYL.blend"
 
 def load_group():
     """Load and return the geometry node group for the tunnel effect."""
-    node_groups = getattr(getattr(bpy, "data", None), "node_groups", None)
+    data = getattr(bpy, "data", None)
+    node_groups = None
+    if data is not None:
+        try:
+            node_groups = data.node_groups
+        except AttributeError:
+            # running in restricted context
+            node_groups = None
     if node_groups is None:
         return None
     if _GROUP in node_groups:
